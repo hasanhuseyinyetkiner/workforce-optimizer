@@ -17,7 +17,7 @@ OR-Tools CP-SAT with an independent pure-Python validator. Load a synthetic rost
 
 ## Quick start
 
-Native path (verified on Windows 11 with `uv` + pnpm). Docker Compose is provided for CI only until `compose-smoke` is green on GitHub Actions.
+Native path (verified on Windows 11 with `uv` + pnpm). Docker Compose is secondary and is verified by the green `compose-smoke` GitHub Actions job — not as a substitute for the native quick start.
 
 ```powershell
 # Backend (API http://127.0.0.1:8103)
@@ -54,15 +54,16 @@ flowchart LR
 
 ## Testing
 
-Measured locally on 2026-10-20:
+Measured locally on 2026-10-20 (re-verified same day for anti-slop audit):
 
 | Check | Result |
 | --- | --- |
 | `cd backend && uv run ruff check app tests` | pass |
 | `cd backend && uv run pytest -q` | **23 passed**, 1 skipped |
-| `cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build` | pass |
+| `cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build` | pass (`pnpm build` re-verified) |
 | `cd frontend && pnpm assert:no-fc-premium` | pass |
 | `cd frontend && pnpm test:e2e` | **1 passed** (demo→solve→validate→export) |
+| Live API `127.0.0.1:8103` feasible→validate→infeasible | FEASIBLE + `valid:true`; INFEASIBLE + no schedule |
 
 ```powershell
 cd backend; uv run ruff check app tests; uv run pytest -q

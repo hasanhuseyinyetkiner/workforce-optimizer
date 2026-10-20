@@ -34,6 +34,8 @@ Leave blank unless a public demo URL is published.
 | Frontend | `cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build` | pass |
 | FullCalendar guard | `cd frontend && pnpm assert:no-fc-premium` | pass (custom roster; no Premium deps) |
 | Playwright smoke | `cd frontend && pnpm test:e2e` | 1 passed |
+| Live API audit | POST feasible + validate + infeasible on `:8103` | FEASIBLE/`valid:true`; INFEASIBLE/no schedule |
+| CI compose-smoke | GitHub Actions job | success (run after `4da0f45`) |
 
 ## About box checklist
 
