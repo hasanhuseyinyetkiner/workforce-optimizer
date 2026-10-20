@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from app.domain.problem import Employee, Problem, Rules, Shift, SkillRequirement, Weights
+from app.domain.problem import Employee, Problem, Rules, Shift, Weights
 
 SPAN = (
     datetime(2026, 11, 1, tzinfo=UTC),

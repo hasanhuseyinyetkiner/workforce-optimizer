@@ -7,8 +7,24 @@ from fastapi.responses import Response
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.models import Employee, OptimizationRun, ScheduleVersion, ShiftInstance, ShiftTemplate, Skill
-from app.schemas import DemoIn, EmployeeIn, EmployeePatch, RulesIn, RunIn, ShiftIn, TemplateIn, TimeOffIn
+from app.models import (
+    Employee,
+    OptimizationRun,
+    ScheduleVersion,
+    ShiftInstance,
+    ShiftTemplate,
+    Skill,
+)
+from app.schemas import (
+    DemoIn,
+    EmployeeIn,
+    EmployeePatch,
+    RulesIn,
+    RunIn,
+    ShiftIn,
+    TemplateIn,
+    TimeOffIn,
+)
 from app.services.catalog import (
     add_time_off,
     create_employee,
@@ -24,6 +40,7 @@ from app.services.problem_builder import active_ruleset
 from app.services.runs import ConflictError, launch_run, start_solve_thread
 from app.services.seed import load_scenario_into_db
 from app.services.serialize import (
+    compare_schedules,
     employee_dict,
     overview_dict,
     rules_dict,
@@ -31,6 +48,7 @@ from app.services.serialize import (
     schedule_csv,
     schedule_dict,
     schedule_ics,
+    schedule_summary,
     shift_dict,
     template_dict,
     time_off_dict,
@@ -186,6 +204,28 @@ def get_run(run_id: int, session: Session = Depends(get_db)) -> dict:
     if run is None:
         raise HTTPException(status_code=404, detail={"code": "not_found", "message": "Run not found."})
     return run_dict(session, run)
+
+
+@router.get("/api/schedules")
+def list_schedules(session: Session = Depends(get_db)) -> list[dict]:
+    rows = session.scalars(select(ScheduleVersion).order_by(ScheduleVersion.id.desc()).limit(24)).all()
+    return [schedule_summary(session, row) for row in rows]
+
+
+@router.get("/api/schedules/compare")
+def schedules_compare(
+    left_id: int,
+    right_id: int,
+    session: Session = Depends(get_db),
+) -> dict:
+    left = session.get(ScheduleVersion, left_id)
+    right = session.get(ScheduleVersion, right_id)
+    if left is None or right is None:
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "not_found", "message": "One or both schedules were not found."},
+        )
+    return compare_schedules(session, left, right)
 
 
 @router.get("/api/schedules/latest")

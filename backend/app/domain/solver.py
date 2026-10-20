@@ -21,7 +21,7 @@ from app.domain.eligibility import (
     rest_conflict,
     week_key,
 )
-from app.domain.problem import Problem
+from app.domain.problem import Problem, Shift
 from app.domain.scoring import preference_points
 
 WORKER_CAP = 4

@@ -157,3 +157,62 @@ export type DemoLoadResult = {
   shifts?: number;
   [key: string]: unknown;
 };
+
+export type ScheduleSummary = {
+  id: number;
+  run_id: number;
+  label: string;
+  solver_status: SolverStatus;
+  objective: number | null;
+  mode: string | null;
+  mode_label: string | null;
+  created_at: string;
+  assignment_count: number;
+};
+
+export type ScheduleCompare = {
+  left: {
+    id: number;
+    run_id: number;
+    label: string;
+    solver_status: SolverStatus;
+    objective: number;
+    objective_breakdown: ObjectiveBreakdown;
+    mode_label: string | null;
+    validation: Validation;
+    rules: Record<string, unknown>;
+  };
+  right: {
+    id: number;
+    run_id: number;
+    label: string;
+    solver_status: SolverStatus;
+    objective: number;
+    objective_breakdown: ObjectiveBreakdown;
+    mode_label: string | null;
+    validation: Validation;
+    rules: Record<string, unknown>;
+  };
+  objective_delta: Record<string, number>;
+  rules_match: boolean;
+  weight_deltas: Record<string, number>;
+  assignment_diff: {
+    shared_count: number;
+    only_left: Array<{ employee_id: number; shift_id: number }>;
+    only_right: Array<{ employee_id: number; shift_id: number }>;
+    only_left_count: number;
+    only_right_count: number;
+  };
+};
+
+export type Ruleset = {
+  id: number;
+  name: string;
+  min_rest_hours: number;
+  max_shift_hours: number;
+  max_consecutive_days: number | null;
+  overtime_threshold_hours: number;
+  relaxed_understaffing: boolean;
+  weights: ObjectiveBreakdown & Record<string, number>;
+  is_active: boolean;
+};

@@ -89,6 +89,7 @@ export function SolvePage() {
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button
+            data-testid="run-solve"
             onClick={() => launch.mutate()}
             disabled={launch.isPending || (activeRunId != null && run.data != null && !isTerminal(run.data))}
           >

@@ -1,4 +1,14 @@
-import { CalendarDays, FlaskConical, LayoutDashboard, Moon, Sun, Users, Wand2, Clock3 } from "lucide-react";
+import {
+  CalendarDays,
+  Clock3,
+  FlaskConical,
+  LayoutDashboard,
+  Moon,
+  Scale,
+  Sun,
+  Users,
+  Wand2,
+} from "lucide-react";
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -6,6 +16,7 @@ const NAV = [
   { to: "/", label: "Overview", icon: LayoutDashboard, end: true },
   { to: "/employees", label: "Employees", icon: Users },
   { to: "/shifts", label: "Shifts", icon: Clock3 },
+  { to: "/rules", label: "Rules", icon: Scale },
   { to: "/solve", label: "Solve", icon: Wand2 },
   { to: "/schedule", label: "Schedule", icon: CalendarDays },
   { to: "/scenarios", label: "Scenarios", icon: FlaskConical },

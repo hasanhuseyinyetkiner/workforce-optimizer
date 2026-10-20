@@ -8,9 +8,8 @@ import time
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from fastapi.testclient import TestClient
-
 from app.domain.solver import SolveResult
+from fastapi.testclient import TestClient
 
 
 @pytest.fixture(scope="session")
@@ -32,12 +31,32 @@ def database_url(tmp_path_factory):
     return url
 
 
+def _await_idle_solves(timeout_seconds: float = 90.0) -> None:
+    from app.database import get_sessionmaker
+    from app.models import OptimizationRun
+    from sqlalchemy import select
+
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
+        session = get_sessionmaker()()
+        try:
+            active = session.scalars(
+                select(OptimizationRun.id).where(OptimizationRun.status.in_(("QUEUED", "RUNNING")))
+            ).all()
+            if not active:
+                return
+        finally:
+            session.close()
+        time.sleep(0.1)
+
+
 @pytest.fixture
 def client(database_url, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("APP_ENV", "test")
     monkeypatch.setenv("HOST", "127.0.0.1")
     monkeypatch.setenv("ALLOW_NETWORK_BIND", "false")
+    monkeypatch.setenv("SOLVER_DETERMINISTIC_TIME_SECONDS", "8")
     from app.config import get_settings
     from app.database import get_sessionmaker, reset_engine
     from app.main import create_app
@@ -48,6 +67,7 @@ def client(database_url, monkeypatch):
     application = create_app()
     with TestClient(application) as test_client:
         yield test_client
+        _await_idle_solves()
         session = get_sessionmaker()()
         try:
             wipe_domain(session)
@@ -58,13 +78,14 @@ def client(database_url, monkeypatch):
     get_settings.cache_clear()
 
 
-def _wait_run(client: TestClient, run_id: int) -> dict:
+def _wait_run(client: TestClient, run_id: int, *, timeout_seconds: float = 90.0) -> dict:
     body = {}
-    for _ in range(200):
+    deadline = time.monotonic() + timeout_seconds
+    while time.monotonic() < deadline:
         body = client.get(f"/api/optimization-runs/{run_id}").json()
         if body["status"] in {"SUCCEEDED", "FAILED"}:
             return body
-        time.sleep(0.05)
+        time.sleep(0.1)
     return body
 
 
@@ -160,6 +181,55 @@ def test_demo_solve_validate_and_export(client: TestClient):
     ) == sorted((row["employee_id"], row["shift_id"]) for row in second_schedule["assignments"])
 
 
+def test_schedule_compare_diffs_objectives_and_assignments(client: TestClient):
+    client.post("/api/demo/load", json={"scenario": "feasible"})
+    first = _wait_run(
+        client,
+        client.post(
+            "/api/optimization-runs",
+            json={"mode": "reproducible", "random_seed": 1, "label": "baseline"},
+        ).json()["id"],
+    )
+    assert first["schedule_id"]
+    rules = client.get("/api/rulesets/active").json()
+    weights = dict(rules["weights"])
+    weights["preference"] = int(weights.get("preference", 1)) + 50
+    saved = client.post(
+        "/api/rulesets",
+        json={
+            "name": "Preference heavy",
+            "min_rest_hours": rules["min_rest_hours"],
+            "max_shift_hours": rules["max_shift_hours"],
+            "max_consecutive_days": rules["max_consecutive_days"],
+            "overtime_threshold_hours": rules["overtime_threshold_hours"],
+            "relaxed_understaffing": rules["relaxed_understaffing"],
+            "weights": weights,
+        },
+    )
+    assert saved.status_code == 201
+    second = _wait_run(
+        client,
+        client.post(
+            "/api/optimization-runs",
+            json={"mode": "reproducible", "random_seed": 1, "label": "pref-heavy"},
+        ).json()["id"],
+    )
+    assert second["schedule_id"]
+    listed = client.get("/api/schedules")
+    assert listed.status_code == 200
+    assert len(listed.json()) >= 2
+    compared = client.get(
+        f"/api/schedules/compare?left_id={first['schedule_id']}&right_id={second['schedule_id']}"
+    )
+    assert compared.status_code == 200, compared.text
+    body = compared.json()
+    assert body["left"]["id"] == first["schedule_id"]
+    assert body["right"]["id"] == second["schedule_id"]
+    assert "total" in body["objective_delta"]
+    assert body["rules_match"] is False
+    assert "shared_count" in body["assignment_diff"]
+
+
 def test_infeasible_demo_stores_no_schedule(client: TestClient):
     client.post("/api/demo/load", json={"scenario": "infeasible"})
     created = client.post("/api/optimization-runs", json={"mode": "reproducible", "random_seed": 1})
@@ -207,13 +277,12 @@ def test_health_while_solve_is_running(client: TestClient, monkeypatch):
 def test_stale_running_run_is_reaped(database_url, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("APP_ENV", "test")
-    from sqlalchemy import select
-
     from app.config import get_settings
     from app.database import get_sessionmaker, reset_engine
     from app.models import OptimizationRun
     from app.services.runs import reap_stale_runs
     from app.services.seed import wipe_domain
+    from sqlalchemy import select
 
     get_settings.cache_clear()
     reset_engine()
@@ -299,11 +368,10 @@ def test_utc_roundtrip_postgres():
     url = os.environ.get("POSTGRES_TEST_URL")
     if not url:
         pytest.skip("POSTGRES_TEST_URL not set")
-    from sqlalchemy import text
-    from sqlalchemy.orm import Session
-
     from app.database import make_engine, run_migrations
     from app.models import OptimizationRun
+    from sqlalchemy import text
+    from sqlalchemy.orm import Session
 
     run_migrations(url)
     engine = make_engine(url)

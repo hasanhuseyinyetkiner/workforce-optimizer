@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { Shell } from "./components/Shell";
 import { EmployeesPage } from "./pages/EmployeesPage";
 import { OverviewPage } from "./pages/OverviewPage";
+import { RulesPage } from "./pages/RulesPage";
 import { SchedulePage } from "./pages/SchedulePage";
 import { ScenariosPage } from "./pages/ScenariosPage";
 import { ShiftsPage } from "./pages/ShiftsPage";
@@ -15,6 +16,7 @@ export default function App() {
         <Route index element={<OverviewPage />} />
         <Route path="employees" element={<EmployeesPage />} />
         <Route path="shifts" element={<ShiftsPage />} />
+        <Route path="rules" element={<RulesPage />} />
         <Route path="solve" element={<SolvePage />} />
         <Route path="schedule" element={<SchedulePage />} />
         <Route path="scenarios" element={<ScenariosPage />} />

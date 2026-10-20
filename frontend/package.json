@@ -9,7 +9,9 @@
     "preview": "vite preview --host 127.0.0.1 --port 5103 --strictPort",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "test:e2e": "playwright test",
+    "assert:no-fc-premium": "node ./scripts/assert-no-fc-premium.mjs"
   },
   "devEngines": {
     "packageManager": {
@@ -40,6 +42,7 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.13.0",
+    "@playwright/test": "^1.55.0",
     "jsdom": "^30.1.3",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",

@@ -52,9 +52,28 @@ export function SchedulePage() {
         <span className="text-sm text-stone-500">
           Schedule #{data.id} · run #{data.run_id} · objective {data.objective}
         </span>
-        <Button variant="ghost" onClick={() => validate.mutate(data.id)} disabled={validate.isPending}>
+        <Button
+          variant="ghost"
+          data-testid="revalidate"
+          onClick={() => validate.mutate(data.id)}
+          disabled={validate.isPending}
+        >
           {validate.isPending ? "Validating…" : "Re-validate"}
         </Button>
+        <a
+          className="rounded-xl border border-stone-300 px-3 py-2 text-sm hover:bg-stone-50 dark:border-stone-700 dark:hover:bg-stone-900"
+          href={`/api/schedules/${data.id}/export.csv`}
+          data-testid="export-csv"
+        >
+          Export CSV
+        </a>
+        <a
+          className="rounded-xl border border-stone-300 px-3 py-2 text-sm hover:bg-stone-50 dark:border-stone-700 dark:hover:bg-stone-900"
+          href={`/api/schedules/${data.id}/export.ics`}
+          data-testid="export-ics"
+        >
+          Export ICS
+        </a>
       </div>
 
       {data.solver_status === "INFEASIBLE" ? (

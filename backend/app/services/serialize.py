@@ -11,7 +11,15 @@ from app.domain.scoring import schedule_kpis, score_schedule
 from app.domain.solver import mode_label
 from app.domain.timeutil import format_local
 from app.domain.validator import validate_schedule
-from app.models import Employee, OptimizationRun, ScheduleVersion, ShiftInstance, ShiftTemplate, Skill, TimeOff
+from app.models import (
+    Employee,
+    OptimizationRun,
+    ScheduleVersion,
+    ShiftInstance,
+    ShiftTemplate,
+    Skill,
+    TimeOff,
+)
 from app.services.problem_builder import build_problem
 
 
@@ -361,4 +369,104 @@ def time_off_dict(item: TimeOff, timezone_name: str) -> dict:
         "start_local": format_local(item.start_utc, timezone_name),
         "end_local": format_local(item.end_utc, timezone_name),
         "reason": item.reason,
+    }
+
+
+def schedule_summary(session: Session, schedule: ScheduleVersion) -> dict:
+    run = session.get(OptimizationRun, schedule.optimization_run_id)
+    parameters = run.parameters if run is not None else {}
+    return {
+        "id": schedule.id,
+        "run_id": schedule.optimization_run_id,
+        "label": run.label if run is not None else "",
+        "solver_status": run.solver_status if run is not None else "UNKNOWN",
+        "objective": run.objective if run is not None else None,
+        "mode": run.mode if run is not None else None,
+        "mode_label": (parameters or {}).get("mode_label") or (mode_label(run.mode) if run else None),
+        "created_at": schedule.created_at,
+        "assignment_count": len(schedule.assignments),
+    }
+
+
+def _rules_for_run(session: Session, run: OptimizationRun | None) -> dict:
+    from app.models import Ruleset
+
+    if run is None or run.ruleset_id is None:
+        return {}
+    row = session.get(Ruleset, run.ruleset_id)
+    if row is None:
+        return {}
+    return rules_dict(row)
+
+
+def compare_schedules(session: Session, left: ScheduleVersion, right: ScheduleVersion) -> dict:
+    """Diff two stored schedules on persisted objectives, rulesets, and assignment pairs."""
+    left_payload = schedule_dict(session, left)
+    right_payload = schedule_dict(session, right)
+    left_run = session.get(OptimizationRun, left.optimization_run_id)
+    right_run = session.get(OptimizationRun, right.optimization_run_id)
+    left_pairs = {(row["employee_id"], row["shift_id"]) for row in left_payload["assignments"]}
+    right_pairs = {(row["employee_id"], row["shift_id"]) for row in right_payload["assignments"]}
+    only_left = sorted(left_pairs - right_pairs)
+    only_right = sorted(right_pairs - left_pairs)
+    shared = sorted(left_pairs & right_pairs)
+
+    left_breakdown = (left_run.objective_breakdown if left_run and left_run.objective_breakdown else None) or left_payload[
+        "objective_breakdown"
+    ]
+    right_breakdown = (
+        right_run.objective_breakdown if right_run and right_run.objective_breakdown else None
+    ) or right_payload["objective_breakdown"]
+    delta = {
+        key: int(right_breakdown.get(key, 0)) - int(left_breakdown.get(key, 0))
+        for key in sorted(set(left_breakdown) | set(right_breakdown))
+    }
+
+    left_rules = _rules_for_run(session, left_run) or left_payload["rules"]
+    right_rules = _rules_for_run(session, right_run) or right_payload["rules"]
+    left_weights = left_rules.get("weights") or {}
+    right_weights = right_rules.get("weights") or {}
+    weight_keys = sorted(set(left_weights) | set(right_weights))
+    weight_deltas = {
+        key: int(right_weights.get(key, 0)) - int(left_weights.get(key, 0)) for key in weight_keys
+    }
+    rules_match = left_rules == right_rules
+    left_objective = left_run.objective if left_run and left_run.objective is not None else left_payload["objective"]
+    right_objective = (
+        right_run.objective if right_run and right_run.objective is not None else right_payload["objective"]
+    )
+
+    return {
+        "left": {
+            "id": left.id,
+            "run_id": left.optimization_run_id,
+            "label": schedule_summary(session, left)["label"],
+            "solver_status": left_payload["solver_status"],
+            "objective": left_objective,
+            "objective_breakdown": left_breakdown,
+            "mode_label": left_payload["mode_label"],
+            "validation": left_payload["validation"],
+            "rules": left_rules,
+        },
+        "right": {
+            "id": right.id,
+            "run_id": right.optimization_run_id,
+            "label": schedule_summary(session, right)["label"],
+            "solver_status": right_payload["solver_status"],
+            "objective": right_objective,
+            "objective_breakdown": right_breakdown,
+            "mode_label": right_payload["mode_label"],
+            "validation": right_payload["validation"],
+            "rules": right_rules,
+        },
+        "objective_delta": delta,
+        "rules_match": rules_match,
+        "weight_deltas": weight_deltas,
+        "assignment_diff": {
+            "shared_count": len(shared),
+            "only_left": [{"employee_id": e, "shift_id": s} for e, s in only_left],
+            "only_right": [{"employee_id": e, "shift_id": s} for e, s in only_right],
+            "only_left_count": len(only_left),
+            "only_right_count": len(only_right),
+        },
     }

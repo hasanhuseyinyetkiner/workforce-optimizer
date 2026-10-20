@@ -6,15 +6,14 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-
 from app.domain.diagnostics import DIAGNOSTIC_NOTE, structural_findings
+from app.domain.problem import SkillRequirement, Weights
 from app.domain.scenario import load_scenario
 from app.domain.scoring import assignment_hash, score_schedule
 from app.domain.solver import diagnose, make_config, solve_problem
 from app.domain.timeutil import local_wall_to_utc
 from app.domain.validator import validate_schedule
 from tests.factories import employee, problem, rules, shift
-from app.domain.problem import SkillRequirement, Weights
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = make_config("reproducible", random_seed=1, num_workers=4, deterministic_seconds=8, fast_seconds=8)
@@ -88,10 +87,9 @@ def test_dst_gap_and_overlap_are_rejected():
 
 
 def test_naive_datetime_rejected_by_type_decorator(tmp_path):
-    from sqlalchemy.orm import Session
-
     from app.database import Base, UtcDateTime, make_engine
     from app.models import Organization
+    from sqlalchemy.orm import Session
 
     engine = make_engine("sqlite:///" + (tmp_path / "clocks.db").as_posix())
     Base.metadata.create_all(engine)

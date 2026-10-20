@@ -21,7 +21,6 @@ from app.models import (
     Skill,
     TimeOff,
 )
-from app.services.problem_builder import active_ruleset
 
 PREFERENCES = {"avoid", "neutral", "prefer"}
 
@@ -175,21 +174,23 @@ def delete_shift(session: Session, shift_id: int) -> None:
 
 
 def save_rules(session: Session, payload: dict) -> Ruleset:
-    current = active_ruleset(session)
-    if current is None:
-        current = Ruleset(name=payload["name"], is_active=True, weights={})
-        session.add(current)
-    current.name = payload["name"].strip()
-    current.min_rest_hours = payload["min_rest_hours"]
-    current.max_shift_hours = payload["max_shift_hours"]
-    current.max_consecutive_days = payload.get("max_consecutive_days")
-    current.overtime_threshold_hours = payload["overtime_threshold_hours"]
-    current.relaxed_understaffing = payload["relaxed_understaffing"]
-    current.weights = payload["weights"]
-    current.is_active = True
+    """Persist a new active ruleset and deactivate prior ones (keeps run history comparable)."""
+    for prior in session.scalars(select(Ruleset).where(Ruleset.is_active.is_(True))).all():
+        prior.is_active = False
+    row = Ruleset(
+        name=payload["name"].strip(),
+        min_rest_hours=payload["min_rest_hours"],
+        max_shift_hours=payload["max_shift_hours"],
+        max_consecutive_days=payload.get("max_consecutive_days"),
+        overtime_threshold_hours=payload["overtime_threshold_hours"],
+        relaxed_understaffing=payload["relaxed_understaffing"],
+        weights=payload["weights"],
+        is_active=True,
+    )
+    session.add(row)
     session.commit()
-    session.refresh(current)
-    return current
+    session.refresh(row)
+    return row
 
 
 def _shift_row(session: Session, timezone_name: str, payload: dict, template_id: int | None) -> ShiftInstance:
