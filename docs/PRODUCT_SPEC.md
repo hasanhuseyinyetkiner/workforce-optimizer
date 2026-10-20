@@ -1,3 +1,5 @@
+> **Binding amendments:** read [REVIEW_AMENDMENTS.md](REVIEW_AMENDMENTS.md) first. It overrides any conflicting text below.
+
 # CURSOR AGENT PROMPT — WORKFORCE OPTIMIZER
 
 Act as a senior operations-research engineer, constraint-programming expert, Python engineer and React product developer. Build **Workforce Optimizer**, a fully functional and visually polished open-source employee scheduling app. Implement executable code and verify outputs with an **independent schedule validator**. Read `.cursor/rules/*.mdc` where present. Use small complete implementation slices, not unfinished mockups.
