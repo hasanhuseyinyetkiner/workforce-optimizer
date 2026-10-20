@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="360" viewBox="0 0 1280 360" role="img" aria-label="Workforce Optimizer: Constraint-based scheduling that explains every shift assignment.">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0B1020"/><stop offset="1" stop-color="#111827"/></linearGradient>
+<radialGradient id="glow" cx="0.8" cy="0.4" r="0.6"><stop offset="0" stop-color="#D97706" stop-opacity="0.22"/><stop offset="1" stop-color="#D97706" stop-opacity="0"/></radialGradient>
+<pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#1F2937" stroke-width="1" opacity="0.6"/></pattern>
+</defs>
+<rect width="1280" height="360" rx="24" fill="url(#bg)"/>
+<rect width="1280" height="360" rx="24" fill="url(#grid)" opacity="0.5"/>
+<rect width="1280" height="360" rx="24" fill="url(#glow)"/>
+<rect x="0.75" y="0.75" width="1278.5" height="358.5" rx="23.5" fill="none" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="80" y="62" width="44" height="6" rx="3" fill="#D97706"/>
+<text x="80" y="128" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.5" fill="#F8FAFC">Workforce Optimizer</text>
+<text x="80" y="186" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="28" fill="#94A3B8">Constraint-based scheduling that</text><text x="80" y="222" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="28" fill="#94A3B8">explains every shift assignment.</text>
+<rect x="80" y="268" width="172" height="36" rx="18" fill="#D97706" fill-opacity="0.12" stroke="#D97706" stroke-opacity="0.45"/><text x="166.0" y="292" text-anchor="middle" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#FCD34D">OR-Tools CP-SAT</text><rect x="264" y="268" width="232" height="36" rx="18" fill="#D97706" fill-opacity="0.12" stroke="#D97706" stroke-opacity="0.45"/><text x="380.0" y="292" text-anchor="middle" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#FCD34D">Independent validator</text><rect x="508" y="268" width="132" height="36" rx="18" fill="#D97706" fill-opacity="0.12" stroke="#D97706" stroke-opacity="0.45"/><text x="574.0" y="292" text-anchor="middle" font-family="Inter, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="600" fill="#FCD34D">Explainable</text>
+<rect x="870" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="920" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="970" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="1020" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="1070" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="1120" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="1170" y="60" width="44" height="244" rx="8" fill="#161E2E" stroke="#1F2937" stroke-width="1.5"/>
+<rect x="875" y="66" width="34" height="72" rx="6" fill="#FCD34D" opacity="0.9"/>
+<rect x="925" y="106" width="34" height="72" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="975" y="66" width="34" height="32" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="1025" y="146" width="34" height="112" rx="6" fill="#FCD34D" opacity="0.9"/>
+<rect x="1075" y="106" width="34" height="72" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="1125" y="186" width="34" height="72" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="1175" y="66" width="34" height="72" rx="6" fill="#FCD34D" opacity="0.9"/>
+<rect x="875" y="186" width="34" height="72" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="975" y="146" width="34" height="112" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="1075" y="226" width="34" height="72" rx="6" fill="#FCD34D" opacity="0.9"/>
+<rect x="925" y="226" width="34" height="32" rx="6" fill="#D97706" opacity="0.9"/>
+<rect x="1175" y="186" width="34" height="72" rx="6" fill="#D97706" opacity="0.9"/>
+<g transform="translate(1150 250)"><circle r="30" fill="#16A34A"/><path d="M-13 1 L-4 10 L14 -9" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>
