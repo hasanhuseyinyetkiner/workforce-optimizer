@@ -42,4 +42,4 @@ Leave blank unless a public demo URL is published.
 - [ ] Description pasted
 - [ ] Topics added
 - [ ] License left unset (README: pending owner decision)
-- [ ] README screenshot / banner present
+- [x] README screenshot / banner present (`docs/assets/banner-*.svg`, `docs/screenshots/*.png` from live `:5103`)
