@@ -1,0 +1,159 @@
+export type SolverStatus = "OPTIMAL" | "FEASIBLE" | "INFEASIBLE" | "UNKNOWN" | string;
+
+export type ObjectiveBreakdown = {
+  cost: number;
+  preference: number;
+  fairness: number;
+  overtime: number;
+  night_imbalance: number;
+  weekend_imbalance: number;
+  understaff: number;
+  total: number;
+};
+
+export type OptimizationRun = {
+  id: number;
+  status: string;
+  solver_status: SolverStatus | null;
+  objective: number | null;
+  best_bound: number | null;
+  runtime_seconds: number | null;
+  mode: string;
+  reproducible: boolean;
+  mode_label: string | null;
+  random_seed: number;
+  parameters: Record<string, unknown>;
+  label: string;
+  error_message: string | null;
+  diagnostics: Record<string, unknown> | null;
+  objective_breakdown: ObjectiveBreakdown | null;
+  schedule_id: number | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+  heartbeat_at: string | null;
+};
+
+export type Validation = {
+  valid: boolean;
+  violations: Array<{
+    code: string;
+    message: string;
+    shift_id: number | null;
+    employee_id: number | null;
+  }>;
+};
+
+export type Overview = {
+  demo: boolean;
+  synthetic_data: boolean;
+  organization_name: string | null;
+  planning_timezone: string | null;
+  counts: {
+    employees: number;
+    shifts: number;
+    skills: number;
+  };
+  latest_run: OptimizationRun | null;
+  recent_runs: OptimizationRun[];
+  schedule: {
+    id: number;
+    solver_status: SolverStatus;
+    objective_breakdown: ObjectiveBreakdown;
+    kpis: Record<string, unknown>;
+    validation: Validation;
+    mode_label: string | null;
+  } | null;
+};
+
+export type Employee = {
+  id: number;
+  display_alias: string;
+  weekly_hour_cap: number;
+  cost_per_hour: number;
+  night_preference: string;
+  weekend_preference: string;
+  skills: string[];
+  availability: Array<Record<string, unknown>>;
+  time_off: Array<{
+    id: number;
+    start_local: string;
+    end_local: string;
+    reason: string;
+  }>;
+};
+
+export type Shift = {
+  id: number;
+  template_id: number | null;
+  label: string;
+  local_date: string;
+  start_local: string;
+  end_local: string;
+  start_utc: string;
+  end_utc: string;
+  overnight: boolean;
+  required_count: number;
+  is_night: boolean;
+  is_weekend: boolean;
+  duration_hours: number;
+  skill_requirements: Array<{
+    skill_names?: string[];
+    label: string;
+    min_count: number;
+  }>;
+};
+
+export type ScheduleAssignment = {
+  employee_id: number;
+  display_alias: string;
+  shift_id: number;
+  label: string;
+  local_date: string;
+  start_local: string;
+  end_local: string;
+  start_utc: string;
+  end_utc: string;
+  overnight: boolean;
+  is_night: boolean;
+  is_weekend: boolean;
+  hours: number;
+};
+
+export type Schedule = {
+  id: number;
+  run_id: number;
+  solver_status: SolverStatus;
+  objective: number;
+  best_bound: number | null;
+  runtime_seconds: number | null;
+  mode: string | null;
+  reproducible: boolean;
+  mode_label: string | null;
+  objective_breakdown: ObjectiveBreakdown;
+  employee_hours: Array<{ employee_id: number; hours: number; display_alias?: string }>;
+  assignments: ScheduleAssignment[];
+  shifts: Shift[];
+  employees: Array<{
+    id: number;
+    display_alias: string;
+    skills: string[];
+    weekly_hour_cap: number;
+    hours: number;
+  }>;
+  validation: Validation;
+  kpis: Record<string, unknown>;
+  planning_timezone: string;
+  organization_name: string;
+  days: string[];
+  rules: Record<string, unknown>;
+  created_at: string;
+};
+
+export type DemoLoadResult = {
+  scenario: "feasible" | "infeasible";
+  synthetic: boolean;
+  employees?: number;
+  shifts?: number;
+  [key: string]: unknown;
+};
