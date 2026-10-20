@@ -1,6 +1,8 @@
 # Design review amendments (binding)
 
-These amendments come from the pre-implementation design review (2026-10-20). They **override** any conflicting text in `docs/PRODUCT_SPEC.md`. IDs refer to review findings.
+These amendments come from the pre-implementation design review (2026-10-20). They **override** any conflicting text in `docs/PRODUCT_SPEC.md` (itself marked **historical**). IDs refer to review findings.
+
+**Shipped roster UI:** a custom employee×day grid. The WFO-2 text below is the historical licensing constraint; it is **not** a claim that a calendar library is in use.
 
 ## Environment and delivery (all products)
 
@@ -15,5 +17,5 @@ These amendments come from the pre-implementation design review (2026-10-20). Th
 ## Product-specific
 
 - **[WFO-1] Reproducibility is a mode, not a default.** `reproducible` mode (used by the demo and all tests): `interleave_search=True`, fixed `num_workers`, stored `random_seed`, and a `max_deterministic_time` limit instead of wall-clock time. `fast` mode uses a wall-clock limit and is labeled non-reproducible in the UI. Persist every solver parameter on `OptimizationRun`. Verify parameter names and semantics against the installed `ortools` version before relying on them. Test: solve the demo instance 10 times in reproducible mode and assert identical assignment hashes.
-- **[WFO-2] MIT-only calendar.** Use only FullCalendar standard (MIT) plugins or a custom roster grid. The employee-by-time "resource timeline" view is FullCalendar Premium and must not be used. A CI step asserts no `@fullcalendar/resource*` or `fullcalendar-scheduler` dependency exists.
+- **[WFO-2] MIT-safe roster surface (historical).** Do not ship Premium calendar packages. **Shipped resolution:** a custom employee×day roster grid (`SchedulePage.tsx`); no FullCalendar dependency in the frontend lockfile. A CI step (`pnpm assert:no-fc-premium`) asserts banned Premium package strings are absent — defensive hygiene, not current product usage of FullCalendar.
 - **[WFO-3] Time model.** All persisted datetimes go through a UTC-enforcing SQLAlchemy `TypeDecorator` (aware in, aware out) so SQLite and PostgreSQL behave identically. Planning-time-zone conversion happens in the domain layer with `zoneinfo`. Shift times that are nonexistent or ambiguous because of DST are rejected with a validation error unless explicitly handled. Round-trip test on SQLite locally and PostgreSQL in CI.

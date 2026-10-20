@@ -59,7 +59,7 @@ export function ScenariosPage() {
         <Card className="border-rose-200 dark:border-rose-900">
           <h2 className="font-semibold text-rose-800 dark:text-rose-300">Infeasible</h2>
           <p className="mt-2 text-sm text-stone-600 dark:text-stone-400">
-            Over-constrained demand designed so the solver returns INFEASIBLE. The Schedule page will flag it clearly.
+            Over-constrained demand so the solver returns INFEASIBLE (model status, not a labor-law verdict). The Schedule page flags it clearly.
           </p>
           <Button
             variant="danger"

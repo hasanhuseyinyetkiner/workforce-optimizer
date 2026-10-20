@@ -102,7 +102,7 @@ export function OverviewPage() {
           </div>
           {data.schedule.solver_status === "INFEASIBLE" ? (
             <p className="mt-2 rounded-xl bg-rose-100 px-3 py-2 text-sm text-rose-900 dark:bg-rose-950/50 dark:text-rose-200">
-              Latest schedule is flagged INFEASIBLE by the solver.
+              Latest schedule is flagged INFEASIBLE by the solver (configured hard rules conflict — not a labor-law verdict).
             </p>
           ) : null}
           {data.schedule.validation.violations.length > 0 ? (

@@ -2,36 +2,57 @@
 
 Workforce Optimizer builds a Google OR-Tools **CP-SAT** model over employee×shift assignment booleans, then rechecks every hard constraint with a pure-Python validator that never imports OR-Tools.
 
+Implementation: `backend/app/domain/solver.py`, `validator.py`, `eligibility.py`, `scoring.py`. Verified against **ortools 9.15.6755**.
+
 ## Inputs
 
 - Employees with skills, weekly hour caps, preferences, availability windows, and time off
 - Shift instances with required headcount, skill requirements, and UTC start/end (planning TZ conversion via `zoneinfo`)
 - An active ruleset: hard limits plus soft objective weights
 
-## Hard constraints (always enforced unless a named relaxation is active)
+## Decision variables
 
-1. **Coverage** — assigned headcount ≥ required count
-2. **Skills** — each skill requirement’s `min_count` is met by qualified assignees
-3. **No overlap / rest** — overlapping shifts forbidden; gaps shorter than `min_rest_hours` forbidden (overnight handled via UTC endpoints)
+| Symbol | Type | When created |
+| --- | --- | --- |
+| \(x_{e,s}\) | BoolVar `x_{employee}_{shift}` | Only if `employee_block_reason(...)` is `None` |
+| `short_s` / `skill_short_*` | IntVar | Only if `rules.relaxed_understaffing` |
+| `ot_e` | IntVar | Always when building soft terms |
+| `fair_*` / `night_*` / `weekend_*` | IntVar | Absolute deviations from mean load |
+
+Eligibility blocks (no variable) cover: `max_shift_hours`, `unavailable`, `time_off`, `prior_conflict`. Candidate count = number of created \(x_{e,s}\) variables after pruning.
+
+## Hard constraints
+
+Always enforced in the main solve unless a **named relaxation probe** temporarily mutates the problem (diagnostics only):
+
+1. **Coverage** — \(\sum_e x_{e,s} \ge r_s\) (or \(+\) shortfall when relaxed)
+2. **Skills** — for each requirement row, qualified assignees \(\ge\) `min_count` (`any_of` skill ids)
+3. **No overlap / rest** — for each employee, any pair of shifts with overlap or gap \(<\) `min_rest_hours` cannot both be 1 (overnight handled via UTC endpoints)
 4. **Availability / PTO** — blocked employees never receive an assignment variable
-5. **Weekly caps** — ISO-week hours including prior boundary shifts ≤ weekly cap
+5. **Weekly caps** — ISO-week hours including prior boundary shifts \(\le\) weekly cap
 6. **Max shift hours** — shifts longer than `max_shift_hours` are ineligible
-7. **Max consecutive days** — sliding window over the planning horizon when configured
+7. **Max consecutive days** — sliding window over planning horizon local start-dates when configured
 
-If the model is infeasible, the API stores `INFEASIBLE` with diagnostics. It never fabricates a roster.
+If the model is infeasible, the API stores `INFEASIBLE` with diagnostics. It **never fabricates** a roster.
+
+Hard constraints here are **model rules** configured for the demo ward. They are **not** a claim of labor-law compliance, collective-bargaining compliance, or that an assignment is legally permitted or prohibited in any jurisdiction.
 
 ## Soft objective
 
-Minimize a weighted sum of:
+Minimize a weighted sum (demo weights from `backend/app/data/feasible/rules.json`):
 
-| Term | Meaning |
-| --- | --- |
-| cost | Σ cost_per_hour × hours |
-| preference | penalties for night/weekend preference mismatches |
-| fairness | absolute deviations of hours from the mean |
-| overtime | hours above the overtime threshold |
-| night / weekend imbalance | absolute deviations of night/weekend shift counts |
-| understaff | shortfall variables **only** when `relaxed_understaffing` is true |
+| Term | Demo weight | Meaning |
+| --- | --- | --- |
+| cost | 1 | \(\sum x_{e,s} \cdot \mathrm{cost}_e \cdot \mathrm{hours}_s\) |
+| preference | 8 | penalties for night/weekend preference mismatches (`preference_points`) |
+| fairness | 4 | absolute deviations of hours from the mean (scaled by \(n\)) |
+| overtime | 15 | hours above `overtime_threshold_hours` |
+| night / weekend imbalance | 3 / 3 | absolute deviations of night/weekend shift counts |
+| understaff | 500 | shortfall variables **only** when `relaxed_understaffing` is true |
+
+Post-solve breakdown for the UI uses the same formulas in `scoring.score_schedule` (no OR-Tools import).
+
+Higher weight → stronger pressure to reduce that term. Changing weights changes trade-offs (e.g. raising `fairness` can increase `cost`). Soft terms never override hard feasibility.
 
 ## Solver modes (WFO-1)
 
@@ -40,19 +61,71 @@ Minimize a weighted sum of:
 | `reproducible` | `interleave_search=True`, capped `num_workers`, fixed `random_seed`, `max_deterministic_time`, `share_linear2_bounds=False` | Reproducible |
 | `fast` | wall-clock `max_time_in_seconds`, non-deterministic search | Fast · not reproducible |
 
-`num_workers` is capped at **4** so the API stays responsive. Every parameter dict is persisted on `OptimizationRun`.
+`num_workers` is capped at **4** (`WORKER_CAP`) so the API stays responsive. Every parameter dict is persisted on `OptimizationRun` (including `ortools_version`).
+
+`share_linear2_bounds` is forced **false** because the installed OR-Tools docstring marks enabling it as non-deterministic.
+
+### Reproducibility limits
+
+- Same seed + `reproducible` mode → identical assignment hashes on the demo (verified ×10 in tests; consecutive micro-bench runs equal).
+- Wall-clock times still vary (OS scheduling, thermal state). Do not treat runtime as a reproducibility invariant.
+- Deterministic time budget can stop at `FEASIBLE` with a gap to the best bound; that is expected, not a bug.
+- OR-Tools version and parameter set must match; results are not guaranteed across major solver upgrades.
 
 ## Independent validator
 
-`app/domain/validator.py` re-validates coverage, skills, overlap, rest, availability, PTO, weekly caps, and consecutive days from the stored assignment list. API validate and export paths use this checker.
+`app/domain/validator.py` re-validates coverage, skills, overlap, rest, availability, PTO, weekly caps, and consecutive days from the stored assignment list. API validate and export paths use this checker. Unit tests assert the module source does not contain `ortools`.
+
+The validator answers: “does this assignment list violate any hard rule?” It does **not** re-prove optimality.
 
 ## Status semantics
 
-| Status | Meaning |
-| --- | --- |
-| OPTIMAL | proven optimum within the search budget |
-| FEASIBLE | feasible but not proven optimal |
-| INFEASIBLE | no assignment satisfies hard constraints |
-| UNKNOWN | timeout / unexpected / model invalid |
+CP-SAT returns a native status. This app maps and persists:
 
-Timeouts are not optimality proofs.
+| Persisted status | Meaning in this app |
+| --- | --- |
+| `OPTIMAL` | Proven optimum within the search budget |
+| `FEASIBLE` | Feasible assignment found; **not** proven optimal |
+| `INFEASIBLE` | No assignment satisfies the configured hard constraints — **no schedule row** |
+| `UNKNOWN` | Search stopped without a usable proof/assignment, **or** the model was rejected |
+
+**`MODEL_INVALID`** (CP-SAT rejects the model) is mapped to **`UNKNOWN`** with an `error` string containing solver response stats. It is not shown as a separate UI badge.
+
+### Important distinctions
+
+| Do not confuse | Correct reading |
+| --- | --- |
+| `INFEASIBLE` vs “illegal / prohibited” | Infeasible means the **configured model** has no satisfying assignment. It is **not** a labor-law verdict and does not mean “this roster is legally prohibited.” |
+| `FEASIBLE` vs `OPTIMAL` | Feasible may still have a positive gap (objective vs best bound). |
+| `UNKNOWN` vs “good enough” | Timeout or model rejection is not an optimality claim. |
+| Validator `Valid` vs optimum | Valid means hard rules pass; soft score may still be suboptimal. |
+
+Timeouts are not optimality proofs. `FEASIBLE` with a positive optimality gap is expected when `max_deterministic_time` expires before a proof.
+
+## Diagnostics (best effort)
+
+On infeasibility, `probe_relaxations` solves mutated problems (clear skills, clear coverage, zero rest, clear availability, raise caps, clear consecutive days). Results feed explanatory findings via `diagnostics.explain`. This is **not** a proven minimal unsatisfiable core (IIS). Large problems skip probes (`employees × shifts > 4000`).
+
+## Micro-benchmark (measured 2026-10-20)
+
+Canonical table, hardware, and caveats: **[BENCHMARK.md](BENCHMARK.md)**. Re-run:
+
+```powershell
+cd backend
+uv run python scripts/micro_benchmark.py
+```
+
+Summary of the same session (seed 1, `reproducible`, `num_workers=4`, `max_deterministic_time=8s`):
+
+| Instance | Emp × shifts | Candidates | Status | Objective | Bound | Wall (s) | Validator |
+| --- | --- | ---: | --- | ---: | ---: | ---: | --- |
+| tiny | 3 × 5 | 15 | OPTIMAL | 1400 | 1400 | 0.124 | valid |
+| small | 5 × 14 | 70 | OPTIMAL | 3856 | 3856 | 6.632 | valid |
+| demo-feasible | 5 × 21 | 101 | FEASIBLE | 8788 | 8597 | 9.734 | valid |
+| medium | 8 × 14 | 112 | FEASIBLE | 8200 | 7766 | 16.130 | valid |
+| demo-infeasible | 5 × 22 | 106 | INFEASIBLE | — | — | 0.051 | n/a |
+| larger | 10 × 20 | 200 | OPTIMAL | 10352 | 10352 | 7.479 | valid |
+
+`demo-feasible` seed 1, two consecutive solves: equal assignment tuples; objective 8788 both times.
+
+Portfolio micro-benchmark only — not a production OR performance claim.

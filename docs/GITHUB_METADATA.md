@@ -5,8 +5,10 @@ Use these values when editing the GitHub repository settings. Do not invent star
 ## Description
 
 ```
-Open-source workforce scheduling with OR-Tools CP-SAT, explainable constraints and independent validation.
+Workforce scheduling demo with OR-Tools CP-SAT, explainable constraints, and independent validation.
 ```
+
+Do **not** use wording that claims “open-source” / OSS until the owner adds a `LICENSE` file. README status: **License: pending owner decision.**
 
 ## Topics
 
@@ -25,21 +27,35 @@ workforce-management
 
 Leave blank unless a public demo URL is published.
 
-## Measured verification (local, 2026-10-20)
-
-| Check | Command | Result |
-| --- | --- | --- |
-| Backend lint | `cd backend && uv run ruff check app tests` | pass |
-| Backend tests | `cd backend && uv run pytest -q` | 23 passed, 1 skipped |
-| Frontend | `cd frontend && pnpm lint && pnpm typecheck && pnpm test && pnpm build` | pass |
-| FullCalendar guard | `cd frontend && pnpm assert:no-fc-premium` | pass (custom roster; no Premium deps) |
-| Playwright smoke | `cd frontend && pnpm test:e2e` | 1 passed |
-| Live API audit | POST feasible + validate + infeasible on `:8103` | FEASIBLE/`valid:true`; INFEASIBLE/no schedule |
-| CI compose-smoke | GitHub Actions job | success (run after `4da0f45`) |
-
 ## About box checklist
 
-- [ ] Description pasted
+- [ ] Description pasted (non-OSS wording above)
 - [ ] Topics added
-- [ ] License left unset (README: pending owner decision)
-- [x] README screenshot / banner present (`docs/assets/banner-*.svg`, `docs/screenshots/*.png` from live `:5103`)
+- [ ] License left unset until owner decides (do not imply MIT/Apache without a file)
+- [x] README screenshots / banner present (`docs/assets/banner-*.svg`, `docs/screenshots/{overview,solve,schedule,validate,scenarios}.png` from live `:5103`)
+- [x] Accent documented as amber `#D97706` (UI + screenshots; emerald deferred)
+- [x] `PRODUCT_SPEC.md` marked historical; checklist in `RELEASE_READINESS.md`
+
+## Measured verification (local, 2026-10-20 — this polish session)
+
+| Check | Command / method | Result |
+| --- | --- | --- |
+| Backend lint | `cd backend && uv run ruff check app tests` | All checks passed |
+| Backend tests | `cd backend && uv run pytest -q` | **23 passed**, 1 skipped, 1 warning |
+| Frontend lint / typecheck / test / build | `pnpm lint && pnpm typecheck && pnpm test && pnpm build` | pass (standalone `tsc` after one OOM under memory pressure) / Vitest **1 passed** / build OK |
+| Calendar lockfile guard | `pnpm assert:no-fc-premium` | pass (hygiene; custom roster grid is the Schedule UI) |
+| Playwright smoke | `pnpm test:e2e -- e2e/demo-solve.spec.ts` | **1 passed** (demo→solve→validate→export) |
+| Screenshots on disk | visual check of `docs/screenshots/*.png` | match current UI (custom roster grid; FEASIBLE / Valid) |
+| Micro-benchmark | `uv run python scripts/micro_benchmark.py` | see [BENCHMARK.md](BENCHMARK.md) — statuses/objectives stable; wall times vary |
+| Local md link check | relative-link scan over docs + README + frontend/README | all resolve |
+| CI compose-smoke | GitHub Actions | not re-verified in this local session |
+
+## Suggested pin rationale
+
+Constraint-programming case study with an independent validator, honest `INFEASIBLE` handling (configured hard rules — not a legal ban), and a reproducible solver mode — useful when interviewers ask how you model hard vs soft staffing rules without inventing schedules.
+
+## Related
+
+- [RELEASE_READINESS.md](RELEASE_READINESS.md) — pre-publish checklist
+- [PRODUCT_SPEC.md](PRODUCT_SPEC.md) — historical prompt only
+- [BENCHMARK.md](BENCHMARK.md) — measured solver micro-benchmark

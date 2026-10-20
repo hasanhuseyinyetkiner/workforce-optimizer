@@ -38,9 +38,11 @@ data/private/
 models/
 .cache/
 qdrant_storage/
+.pnpm-store/
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .idea/
+.vscode/
 *.log

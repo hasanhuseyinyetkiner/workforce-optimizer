@@ -1,8 +1,14 @@
-> **Binding amendments:** read [REVIEW_AMENDMENTS.md](REVIEW_AMENDMENTS.md) first. It overrides any conflicting text below.
+> **HISTORICAL DOCUMENT.** This file is the original build prompt from 2026-10-20. It is **not** a current product claim sheet.
+>
+> **Current truth** lives in [README.md](../README.md), [ARCHITECTURE.md](ARCHITECTURE.md), [ALGORITHM.md](ALGORITHM.md), [BENCHMARK.md](BENCHMARK.md), [ENGINEERING_DECISIONS.md](ENGINEERING_DECISIONS.md), and [RELEASE_READINESS.md](RELEASE_READINESS.md).
+>
+> **Binding amendments** in [REVIEW_AMENDMENTS.md](REVIEW_AMENDMENTS.md) still override any conflicting text below for historical interpretation.
+>
+> Notably outdated vs shipped code: the stack line mentioning a calendar library — the Schedule UI is a **custom employee×day roster grid**, not a third-party calendar widget.
 
-# CURSOR AGENT PROMPT — WORKFORCE OPTIMIZER
+# CURSOR AGENT PROMPT — WORKFORCE OPTIMIZER *(historical)*
 
-Act as a senior operations-research engineer, constraint-programming expert, Python engineer and React product developer. Build **Workforce Optimizer**, a fully functional and visually polished open-source employee scheduling app. Implement executable code and verify outputs with an **independent schedule validator**. Read `.cursor/rules/*.mdc` where present. Use small complete implementation slices, not unfinished mockups.
+Act as a senior operations-research engineer, constraint-programming expert, Python engineer and React product developer. Build **Workforce Optimizer**, a fully functional and visually polished employee scheduling app *(historical wording said “open-source”; license remains pending owner decision — not a current OSS claim)*. Implement executable code and verify outputs with an **independent schedule validator**. Read `.cursor/rules/*.mdc` where present. Use small complete implementation slices, not unfinished mockups.
 
 ## Product concept
 
@@ -11,7 +17,7 @@ Operations managers configure employees, skills, demand by shift, availability, 
 ## Stack
 
 - Python 3.12+, Google OR-Tools CP-SAT (verified supported API), FastAPI, Pydantic v2, SQLAlchemy 2, Alembic, PostgreSQL, pytest, Ruff.
-- React + Vite + TypeScript, Tailwind, FullCalendar (check suitable current license), Recharts, TanStack Query, React Router, Lucide.
+- React + Vite + TypeScript, Tailwind, FullCalendar (check suitable current license) *(historical suggestion — **not shipped**; see custom roster grid)*, Recharts, TanStack Query, React Router, Lucide.
 - Docker Compose, GitHub Actions, Vitest, Playwright.
 - For an MVP, keep solve jobs bounded to a documented small planning horizon and employee count; add async queue only if justified by measured blocking.
 
@@ -65,7 +71,7 @@ No guarantee of labor-law compliance. Legal and collective-bargaining constraint
 
 ## README / GitHub product polish
 
-English headline: "Constraint-based scheduling that explains every shift assignment." Actual calendar/dashboard screenshot near top; capability highlights; an accurate diagram of input -> constraint model -> CP-SAT -> validator -> schedule; full reproducible Quick Start; small sample scenario and measured result; example of an infeasible case; description of hard vs soft constraints, objective and solver status; tests and benchmark protocol; truthful limitations; docs/API/CSV examples; license/contribution guide. Add an informative `docs/ARCHITECTURE.md` and `docs/ALGORITHM.md`. `docs/GITHUB_METADATA.md` description `Open-source workforce scheduling with OR-Tools CP-SAT, explainable constraints and independent validation.` Topics: `operations-research`, `or-tools`, `optimization`, `scheduling`, `fastapi`, `react`, `python`, `workforce-management`.
+English headline: "Constraint-based scheduling that explains every shift assignment." Actual calendar/dashboard screenshot near top; capability highlights; an accurate diagram of input -> constraint model -> CP-SAT -> validator -> schedule; full reproducible Quick Start; small sample scenario and measured result; example of an infeasible case; description of hard vs soft constraints, objective and solver status; tests and benchmark protocol; truthful limitations; docs/API/CSV examples; license pending owner decision (do not claim OSS until LICENSE exists). Add an informative `docs/ARCHITECTURE.md` and `docs/ALGORITHM.md`. `docs/GITHUB_METADATA.md` About description must not claim open-source without a license. Topics: `operations-research`, `or-tools`, `optimization`, `scheduling`, `fastapi`, `react`, `python`, `workforce-management`.
 
 ## Deliverables & phases
 

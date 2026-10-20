@@ -79,7 +79,9 @@ export function SchedulePage() {
       {data.solver_status === "INFEASIBLE" ? (
         <Card className="mb-4 border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-200">
           <p className="font-semibold">INFEASIBLE scenario</p>
-          <p className="mt-1 text-sm">The latest stored schedule was produced under an infeasible solve result.</p>
+          <p className="mt-1 text-sm">
+            No roster satisfies the configured hard constraints. That is a model status, not a legal or labor-law verdict.
+          </p>
         </Card>
       ) : null}
 
@@ -105,6 +107,8 @@ export function SchedulePage() {
 
       <div className="overflow-x-auto rounded-2xl border border-stone-200/80 bg-white/80 dark:border-stone-800 dark:bg-stone-950/70">
         <div
+          role="grid"
+          aria-label={`Employee by day roster grid for ${data.organization_name}, ${days.length} days`}
           className="grid min-w-[720px] text-sm"
           style={{ gridTemplateColumns: `160px repeat(${Math.max(days.length, 1)}, minmax(120px, 1fr))` }}
         >

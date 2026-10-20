@@ -137,7 +137,7 @@ export function SolvePage() {
             </dl>
             {current.solver_status === "INFEASIBLE" ? (
               <p className="mt-4 rounded-xl bg-rose-100 px-3 py-2 text-sm text-rose-900 dark:bg-rose-950/50 dark:text-rose-200">
-                Solver returned INFEASIBLE. Load the feasible scenario or relax rules, then solve again.
+                Solver returned INFEASIBLE — no assignment satisfies the configured hard rules (not a labor-law judgment). Load the feasible scenario or relax rules, then solve again.
               </p>
             ) : null}
             {current.error_message ? (
