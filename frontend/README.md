@@ -71,5 +71,5 @@ pnpm exec playwright test e2e/screenshots.spec.ts
 ## Related docs
 
 - [Root README](../README.md)
-- [Architecture](../docs/ARCHITECTURE.md)
-- [Engineering decisions](../docs/ENGINEERING_DECISIONS.md)
+- [Algorithm](../docs/ALGORITHM.md)
+- [Benchmark](../docs/BENCHMARK.md)

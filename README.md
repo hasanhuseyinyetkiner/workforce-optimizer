@@ -38,7 +38,7 @@ flowchart LR
   Worker --> Val[Pure-Python validator]
 ```
 
-Details: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) · model: [docs/ALGORITHM.md](docs/ALGORITHM.md).
+Model: [docs/ALGORITHM.md](docs/ALGORITHM.md) · measured runs: [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
 ## Quick start
 
@@ -106,9 +106,6 @@ Measured micro-benchmark: [docs/BENCHMARK.md](docs/BENCHMARK.md).
 | --- | --- |
 | [ALGORITHM.md](docs/ALGORITHM.md) | Variables, hard/soft, diagnostics, status |
 | [BENCHMARK.md](docs/BENCHMARK.md) | Measured size ladder |
-| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | Runtime topology |
-| [ENGINEERING_DECISIONS.md](docs/ENGINEERING_DECISIONS.md) | Hard/soft, reproducibility, limits |
-| [GITHUB_METADATA.md](docs/GITHUB_METADATA.md) | About box / topics |
 | [frontend/README.md](frontend/README.md) | SPA notes |
 
 ## Limitations
