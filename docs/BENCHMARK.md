@@ -1,4 +1,6 @@
-# Solver micro-benchmark
+# Solver micro-benchmark (historical)
+
+> **Historical only (2026-10-20).** For the latest measured session, see [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md).
 
 Measured portfolio runs on synthetic instances. **Numbers below are from an actual local execution** of `backend/scripts/micro_benchmark.py` on 2026-10-20. This is not a large-scale OR performance claim and must not be cited as a production speedup.
 

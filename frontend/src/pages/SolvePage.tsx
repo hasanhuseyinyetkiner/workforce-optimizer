@@ -35,11 +35,14 @@ function DiagnosticsPanel({ diagnostics }: { diagnostics: Diagnostics }) {
     <div className="mt-4 rounded-xl border border-rose-200 p-3 dark:border-rose-900">
       <h2 className="text-sm font-semibold">Conflict diagnostics</h2>
       <p className="mt-1 text-xs text-stone-500">{diagnostics.note}</p>
+      <p className="mt-1 text-xs text-stone-500" data-testid="diagnostics-iis-disclaimer">
+        Assumption-group / unsat core only — not a proven minimal IIS unless independently verified.
+      </p>
 
       {diagnostics.conflict_groups && diagnostics.conflict_groups.length > 0 ? (
         <div className="mt-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
-            Conflicting hard-constraint groups
+            Conflicting hard-constraint groups (sufficient set)
           </p>
           <ul className="mt-2 flex flex-wrap gap-1.5">
             {diagnostics.conflict_groups.map((g) => (

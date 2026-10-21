@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 from app.domain.diagnostics import DIAGNOSTIC_NOTE, structural_findings
-from app.domain.problem import SkillRequirement, Weights
+from app.domain.problem import BusyInterval, SkillRequirement, Weights
 from app.domain.scenario import load_scenario
 from app.domain.scoring import assignment_hash, score_schedule
 from app.domain.solver import diagnose, make_config, solve_problem
@@ -351,3 +351,154 @@ def test_optimal_scenario_is_optimal():
     assert result.objective is not None
     assert result.best_bound == result.objective
     assert result.assignments
+
+
+def test_objective_breakdown_components_match_scorer_golden():
+    """Each soft component from score_schedule must sum to the solver objective."""
+    start = datetime(2026, 11, 2, 8, tzinfo=UTC)
+    night = shift(1, datetime(2026, 11, 2, 22, tzinfo=UTC), label="Night", is_night=True, is_weekend=False)
+    day = shift(2, start + timedelta(days=1), label="Day", is_night=False, is_weekend=False)
+    weekend = shift(
+        3,
+        datetime(2026, 11, 7, 8, tzinfo=UTC),  # Saturday
+        label="Weekend",
+        is_night=False,
+        is_weekend=True,
+    )
+    instance = problem(
+        [
+            employee(1, cost_per_hour=10, night_preference="avoid", weekend_preference="avoid"),
+            employee(2, cost_per_hour=12, night_preference="prefer", weekend_preference="prefer"),
+        ],
+        [night, day, weekend],
+        rules(
+            min_rest_hours=1,
+            overtime_threshold_hours=8,
+            weights=Weights(
+                cost=1,
+                preference=5,
+                fairness=2,
+                overtime=3,
+                night_imbalance=4,
+                weekend_imbalance=4,
+                understaff=0,
+            ),
+        ),
+    )
+    expected_total, best = _enumerate_best(instance)
+    result = _solve(instance)
+    assert result.solver_status == "OPTIMAL"
+    assert result.objective == expected_total
+    breakdown = score_schedule(instance, list(result.assignments))
+    assert breakdown.as_dict() == {
+        "cost": breakdown.cost,
+        "preference": breakdown.preference,
+        "fairness": breakdown.fairness,
+        "overtime": breakdown.overtime,
+        "night_imbalance": breakdown.night_imbalance,
+        "weekend_imbalance": breakdown.weekend_imbalance,
+        "understaff": breakdown.understaff,
+        "total": breakdown.total,
+    }
+    assert breakdown.total == result.objective
+    assert sum(
+        [
+            breakdown.cost,
+            breakdown.preference,
+            breakdown.fairness,
+            breakdown.overtime,
+            breakdown.night_imbalance,
+            breakdown.weekend_imbalance,
+            breakdown.understaff,
+        ]
+    ) == result.objective
+    # Golden component map for the known optimum (enumerate-checked).
+    golden = score_schedule(instance, best)
+    assert breakdown.as_dict() == golden.as_dict()
+    assert breakdown.cost > 0
+    assert breakdown.preference >= 0
+
+
+def test_demo_feasible_breakdown_matches_solver_objective():
+    instance = load_scenario("feasible").problem
+    result = _solve(instance)
+    assert result.solver_status in {"OPTIMAL", "FEASIBLE"}
+    breakdown = score_schedule(instance, list(result.assignments))
+    assert breakdown.total == result.objective
+    assert breakdown.as_dict()["total"] == result.objective
+    for key in ("cost", "preference", "fairness", "overtime", "night_imbalance", "weekend_imbalance", "understaff"):
+        assert key in breakdown.as_dict()
+        assert isinstance(breakdown.as_dict()[key], int)
+
+
+def test_time_limit_can_return_unknown_without_assignments():
+    """Fast mode with a tiny wall budget must not invent a successful roster on UNKNOWN."""
+    instance = load_scenario("feasible").problem
+    tight = make_config(
+        "fast",
+        random_seed=1,
+        num_workers=1,
+        deterministic_seconds=8,
+        fast_seconds=1e-9,
+    )
+    result = solve_problem(instance, tight)
+    # Tiny budgets usually yield UNKNOWN; if the solver still proves FEASIBLE/OPTIMAL
+    # instantly, that is also honest — but then assignments must validate.
+    assert result.solver_status in {"UNKNOWN", "FEASIBLE", "OPTIMAL", "INFEASIBLE"}
+    if result.solver_status == "UNKNOWN":
+        assert result.assignments == ()
+        assert result.objective is None
+    elif result.solver_status in {"OPTIMAL", "FEASIBLE"}:
+        assert validate_schedule(instance, list(result.assignments)).valid
+        assert score_schedule(instance, list(result.assignments)).total == result.objective
+    else:
+        assert result.assignments == ()
+
+
+def test_prior_shifts_lock_weekly_cap_explains_infeasibility():
+    """Prior (locked) hours in the same ISO week fill the weekly cap → INFEASIBLE."""
+    monday = datetime(2026, 11, 2, 8, tzinfo=UTC)
+    # Rest interval is last week (no prior_conflict); hours roll into Monday's ISO week.
+    prior = BusyInterval(
+        start=monday - timedelta(days=7),
+        end=monday - timedelta(days=7) + timedelta(hours=8),
+        local_start_date=monday.date().isoformat(),
+        hours=40,
+    )
+    instance = problem(
+        [employee(1, weekly_hour_cap=40, prior_shifts=(prior,))],
+        [shift(1, monday + timedelta(days=1), hours=8)],
+        rules(min_rest_hours=1, weights=Weights(cost=1)),
+    )
+    result = _solve(instance)
+    assert result.solver_status == "INFEASIBLE"
+    assert result.assignments == ()
+    report = diagnose(
+        instance,
+        CONFIG,
+        conflict_groups=result.conflict_groups,
+        assumptions_available=result.assumptions_available,
+    )
+    assert report["note"] == DIAGNOSTIC_NOTE
+    assert "Not a proven minimal unsatisfiable core" in report["note"]
+    groups = {item["group"] for item in report["conflict_groups"]}
+    assert "weekly_cap" in groups or any(
+        item["relaxed"] == ["weekly_cap_and_max_shift"] and item["solver_status"] in {"OPTIMAL", "FEASIBLE"}
+        for item in report["relaxations"]
+    )
+
+
+def test_hard_constraint_violation_never_returned_as_success():
+    """Validator rejects fabricated illegal assignments; solver never publishes them."""
+    start = datetime(2026, 11, 2, 8, tzinfo=UTC)
+    instance = problem(
+        [employee(1)],
+        [shift(1, start), shift(2, start + timedelta(hours=8))],
+        rules(min_rest_hours=11),
+    )
+    result = _solve(instance)
+    assert result.solver_status == "INFEASIBLE"
+    assert result.assignments == ()
+    forged = validate_schedule(instance, [(1, 1), (1, 2)])
+    assert not forged.valid
+    assert forged.violations  # any hard-code rejection is enough; must not be Valid

@@ -112,26 +112,16 @@ On `INFEASIBLE`, the app attaches structured conflict diagnostics:
 
 Honest capability label is stored on every diagnostic payload (`note`, `unsat_core_kind`).
 
-## Micro-benchmark (measured 2026-10-20)
+## Micro-benchmark
 
-Canonical table, hardware, and caveats: **[BENCHMARK.md](BENCHMARK.md)**. Re-run:
+**This-session measured baseline:** [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md) (2026-10-21).  
+**Historical ladder only:** [BENCHMARK.md](BENCHMARK.md) (2026-10-20) — do not cite as this-session evidence.
+
+Re-run:
 
 ```powershell
 cd backend
 uv run python scripts/micro_benchmark.py
 ```
-
-Summary of the same session (seed 1, `reproducible`, `num_workers=4`, `max_deterministic_time=8s`):
-
-| Instance | Emp × shifts | Candidates | Status | Objective | Bound | Wall (s) | Validator |
-| --- | --- | ---: | --- | ---: | ---: | ---: | --- |
-| tiny | 3 × 5 | 15 | OPTIMAL | 1400 | 1400 | 0.124 | valid |
-| small | 5 × 14 | 70 | OPTIMAL | 3856 | 3856 | 6.632 | valid |
-| demo-feasible | 5 × 21 | 101 | FEASIBLE | 8788 | 8597 | 9.734 | valid |
-| medium | 8 × 14 | 112 | FEASIBLE | 8200 | 7766 | 16.130 | valid |
-| demo-infeasible | 5 × 22 | 106 | INFEASIBLE | — | — | 0.051 | n/a |
-| larger | 10 × 20 | 200 | OPTIMAL | 10352 | 10352 | 7.479 | valid |
-
-`demo-feasible` seed 1, two consecutive solves: equal assignment tuples; objective 8788 both times.
 
 Portfolio micro-benchmark only — not a production OR performance claim.

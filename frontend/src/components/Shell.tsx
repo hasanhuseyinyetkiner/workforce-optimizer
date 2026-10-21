@@ -34,10 +34,18 @@ export function Shell() {
 
   return (
     <div className="min-h-screen lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:text-stone-900"
+      >
+        Skip to main content
+      </a>
       <aside className="flex flex-col bg-[#1c1410] text-stone-100 lg:min-h-screen">
         <div className="px-5 pb-4 pt-6">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-sm font-bold text-white">W</span>
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-accent text-sm font-bold text-white" aria-hidden="true">
+              W
+            </span>
             <div>
               <p className="text-sm font-semibold tracking-tight">Workforce Optimizer</p>
               <p className="text-xs text-stone-400">Shift roster solver</p>
