@@ -327,8 +327,27 @@ def test_infeasible_demo_has_diagnostics_and_no_assignments():
     result = _solve(instance)
     assert result.solver_status == "INFEASIBLE"
     assert result.assignments == ()
-    report = diagnose(instance, CONFIG)
+    assert result.assumptions_available is True
+    assert "skill_requirements" in result.conflict_groups
+    report = diagnose(
+        instance,
+        CONFIG,
+        conflict_groups=result.conflict_groups,
+        assumptions_available=result.assumptions_available,
+    )
     assert report["note"] == DIAGNOSTIC_NOTE
+    assert report["assumptions_available"] is True
+    assert report["unsat_core_kind"] == "constraint_group_assumptions"
+    assert any(item["group"] == "skill_requirements" for item in report["conflict_groups"])
     assert any(item["code"] == "no_qualified_employee" and item["skill"] == "CRNA" for item in report["findings"])
     relaxed = next(item for item in report["relaxations"] if item["relaxed"] == ["skill_requirements"])
     assert relaxed["solver_status"] in {"OPTIMAL", "FEASIBLE"}
+
+
+def test_optimal_scenario_is_optimal():
+    instance = load_scenario("optimal").problem
+    result = _solve(instance)
+    assert result.solver_status == "OPTIMAL"
+    assert result.objective is not None
+    assert result.best_bound == result.objective
+    assert result.assignments

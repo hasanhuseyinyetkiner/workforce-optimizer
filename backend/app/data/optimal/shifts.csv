@@ -1,0 +1,6 @@
+local_date,start_local,end_local,required_count,skills,label
+2026-11-02,07:00,15:00,1,RN:1,Day
+2026-11-02,15:00,23:00,1,RN|LPN:1,Evening
+2026-11-03,07:00,15:00,1,RN:1,Day
+2026-11-03,15:00,23:00,1,CNA:1,Evening
+2026-11-04,07:00,15:00,1,RN:1,Day

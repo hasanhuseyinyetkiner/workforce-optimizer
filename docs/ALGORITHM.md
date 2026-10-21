@@ -104,7 +104,13 @@ Timeouts are not optimality proofs. `FEASIBLE` with a positive optimality gap is
 
 ## Diagnostics (best effort)
 
-On infeasibility, `probe_relaxations` solves mutated problems (clear skills, clear coverage, zero rest, clear availability, raise caps, clear consecutive days). Results feed explanatory findings via `diagnostics.explain`. This is **not** a proven minimal unsatisfiable core (IIS). Large problems skip probes (`employees × shifts > 4000`).
+On `INFEASIBLE`, the app attaches structured conflict diagnostics:
+
+1. **Structural findings** — eligibility / coverage / skill pre-checks (`diagnostics.structural_findings`), no OR-Tools.
+2. **CP-SAT assumption groups** — hard constraint families (`coverage`, `skill_requirements`, `rest`, `weekly_cap`, `consecutive_days`) are wrapped with `AddAssumption` literals. After infeasibility, `CpSolver.sufficient_assumptions_for_infeasibility` plus a **deletion filter** yields a refined group set. This is a *group-level* sufficient set, **not** a proven minimal IIS over every individual constraint. If the assumption API were missing on the installed OR-Tools build, the app would skip this layer and say so (`assumptions_available=false`) rather than invent an IIS.
+3. **Progressive relaxations** — `probe_relaxations` re-solves named mutants (clear skills, clear coverage, zero rest, clear availability, raise caps, clear consecutive days). Large problems skip probes (`employees × shifts > 4000`).
+
+Honest capability label is stored on every diagnostic payload (`note`, `unsat_core_kind`).
 
 ## Micro-benchmark (measured 2026-10-20)
 

@@ -237,7 +237,9 @@ def test_infeasible_demo_stores_no_schedule(client: TestClient):
     assert body["status"] == "SUCCEEDED"
     assert body["solver_status"] == "INFEASIBLE"
     assert body["schedule_id"] is None
-    assert "not a proven minimal unsatisfiable core" in body["diagnostics"]["note"]
+    assert "proven minimal unsatisfiable core" in body["diagnostics"]["note"].lower()
+    assert body["diagnostics"]["assumptions_available"] is True
+    assert any(item["group"] == "skill_requirements" for item in body["diagnostics"]["conflict_groups"])
     assert any(item["code"] == "no_qualified_employee" for item in body["diagnostics"]["findings"])
     missing = client.get("/api/schedules/latest")
     assert missing.status_code == 404

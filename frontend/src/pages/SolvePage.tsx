@@ -4,7 +4,7 @@ import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recha
 
 import { api } from "../api";
 import { Button, Card, ErrorState, PageIntro, StatusBadge } from "../components/ui";
-import type { ObjectiveBreakdown, OptimizationRun } from "../types";
+import type { Diagnostics, ObjectiveBreakdown, OptimizationRun } from "../types";
 
 const TERMINAL = new Set(["SUCCEEDED", "FAILED", "CANCELLED"]);
 
@@ -18,6 +18,88 @@ function breakdownRows(breakdown: ObjectiveBreakdown | null | undefined) {
   return Object.entries(breakdown)
     .filter(([key]) => key !== "total")
     .map(([name, value]) => ({ name, value }));
+}
+
+function wallMs(seconds: number | null | undefined) {
+  if (seconds == null) return null;
+  return Math.round(seconds * 1000);
+}
+
+function optimalityGap(objective: number | null | undefined, bound: number | null | undefined) {
+  if (objective == null || bound == null) return null;
+  return objective - bound;
+}
+
+function DiagnosticsPanel({ diagnostics }: { diagnostics: Diagnostics }) {
+  return (
+    <div className="mt-4 rounded-xl border border-rose-200 p-3 dark:border-rose-900">
+      <h2 className="text-sm font-semibold">Conflict diagnostics</h2>
+      <p className="mt-1 text-xs text-stone-500">{diagnostics.note}</p>
+
+      {diagnostics.conflict_groups && diagnostics.conflict_groups.length > 0 ? (
+        <div className="mt-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">
+            Conflicting hard-constraint groups
+          </p>
+          <ul className="mt-2 flex flex-wrap gap-1.5">
+            {diagnostics.conflict_groups.map((g) => (
+              <li
+                key={g.group}
+                className="rounded bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-900 dark:bg-rose-950 dark:text-rose-200"
+              >
+                {g.label}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-stone-500">
+            Method: {diagnostics.assumption_method ?? "n/a"} · kind {diagnostics.unsat_core_kind}
+          </p>
+        </div>
+      ) : (
+        <p className="mt-2 text-xs text-stone-500">
+          {diagnostics.assumptions_available === false
+            ? "Assumption API unavailable — structural findings and relaxations only."
+            : "No refined assumption groups reported."}
+        </p>
+      )}
+
+      {diagnostics.findings.length > 0 ? (
+        <ul className="mt-3 max-h-36 space-y-1 overflow-auto text-sm">
+          {diagnostics.findings.map((f, i) => (
+            <li key={`${f.code}-${i}`}>
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-950 dark:bg-amber-950 dark:text-amber-100">
+                {f.code}
+              </span>{" "}
+              {f.message}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {diagnostics.relaxations.length > 0 ? (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[320px] text-left text-xs">
+            <thead>
+              <tr className="border-b border-stone-200 text-stone-500 dark:border-stone-800">
+                <th className="py-1 pr-2 font-medium">Relaxed</th>
+                <th className="py-1 font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {diagnostics.relaxations.map((row, i) => (
+                <tr key={`${row.relaxed.join(",")}-${i}`} className="border-b border-stone-100 dark:border-stone-900">
+                  <td className="py-1 pr-2">{row.relaxed.join(", ")}</td>
+                  <td className="py-1">
+                    <StatusBadge status={row.solver_status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 export function SolvePage() {
@@ -58,12 +140,14 @@ export function SolvePage() {
 
   const current = run.data ?? launch.data;
   const chart = breakdownRows(current?.objective_breakdown);
+  const ms = wallMs(current?.runtime_seconds);
+  const gap = optimalityGap(current?.objective, current?.best_bound);
 
   return (
     <div>
       <PageIntro
         title="Solve"
-        description="Launch a reproducible optimization run, poll until finished, and show the exact solver status."
+        description="Launch a reproducible optimization run, poll until finished, and inspect solver telemetry."
       />
       <Card>
         <div className="grid gap-3 sm:grid-cols-3">
@@ -107,7 +191,7 @@ export function SolvePage() {
               <h2 className="text-sm font-semibold">Run #{current.id}</h2>
               <StatusBadge status={current.solver_status ?? current.status} />
             </div>
-            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+            <dl className="mt-4 grid grid-cols-2 gap-3 text-sm" data-testid="solver-telemetry">
               <div>
                 <dt className="text-stone-500">Status</dt>
                 <dd className="font-medium">{current.status}</dd>
@@ -117,14 +201,20 @@ export function SolvePage() {
                 <dd className="font-medium">{current.solver_status ?? "UNKNOWN"}</dd>
               </div>
               <div>
+                <dt className="text-stone-500">Wall time</dt>
+                <dd className="tabular font-medium">{ms != null ? `${ms} ms` : "—"}</dd>
+              </div>
+              <div>
                 <dt className="text-stone-500">Objective</dt>
                 <dd className="tabular font-medium">{current.objective ?? "—"}</dd>
               </div>
               <div>
-                <dt className="text-stone-500">Runtime</dt>
-                <dd className="tabular font-medium">
-                  {current.runtime_seconds != null ? `${current.runtime_seconds.toFixed(2)}s` : "—"}
-                </dd>
+                <dt className="text-stone-500">Best bound</dt>
+                <dd className="tabular font-medium">{current.best_bound ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-stone-500">Gap</dt>
+                <dd className="tabular font-medium">{gap != null ? gap : "—"}</dd>
               </div>
               <div>
                 <dt className="text-stone-500">Mode</dt>
@@ -137,13 +227,17 @@ export function SolvePage() {
             </dl>
             {current.solver_status === "INFEASIBLE" ? (
               <p className="mt-4 rounded-xl bg-rose-100 px-3 py-2 text-sm text-rose-900 dark:bg-rose-950/50 dark:text-rose-200">
-                Solver returned INFEASIBLE — no assignment satisfies the configured hard rules (not a labor-law judgment). Load the feasible scenario or relax rules, then solve again.
+                INFEASIBLE — no assignment satisfies the configured hard rules (not a labor-law judgment).
+                See conflict diagnostics below.
               </p>
             ) : null}
             {current.error_message ? (
               <p className="mt-3 text-sm text-rose-600">{current.error_message}</p>
             ) : null}
             {run.isError ? <ErrorState error={run.error} /> : null}
+            {current.diagnostics && current.solver_status === "INFEASIBLE" ? (
+              <DiagnosticsPanel diagnostics={current.diagnostics} />
+            ) : null}
           </Card>
           <Card>
             <h2 className="text-sm font-semibold">Objective breakdown</h2>
@@ -165,7 +259,10 @@ export function SolvePage() {
             )}
             {current.objective_breakdown ? (
               <p className="mt-2 text-sm text-stone-500">
-                Total objective: <span className="tabular font-medium text-stone-800 dark:text-stone-200">{current.objective_breakdown.total}</span>
+                Total objective:{" "}
+                <span className="tabular font-medium text-stone-800 dark:text-stone-200">
+                  {current.objective_breakdown.total}
+                </span>
               </p>
             ) : null}
           </Card>

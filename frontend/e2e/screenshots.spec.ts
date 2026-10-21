@@ -54,6 +54,9 @@ test.describe("portfolio screenshots", () => {
 
     await page.goto("/scenarios");
     await expect(page.getByRole("heading", { name: "Scenarios" })).toBeVisible();
+    await expect(page.getByTestId("scenario-optimal")).toBeVisible();
+    await expect(page.getByTestId("scenario-feasible")).toBeVisible();
+    await expect(page.getByTestId("scenario-infeasible")).toBeVisible();
     const schedules = await (await request.get("http://127.0.0.1:8103/api/schedules")).json();
     expect(schedules.length).toBeGreaterThanOrEqual(2);
     const left = schedules[0].id;

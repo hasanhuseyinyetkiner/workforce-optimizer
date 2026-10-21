@@ -11,6 +11,32 @@ export type ObjectiveBreakdown = {
   total: number;
 };
 
+export type ConflictGroup = {
+  group: string;
+  label: string;
+};
+
+export type Diagnostics = {
+  note: string;
+  findings: Array<{
+    code: string;
+    message: string;
+    shift_id?: number;
+    employee_id?: number;
+    skill?: string;
+  }>;
+  relaxations: Array<{
+    relaxed: string[];
+    solver_status: string;
+    error?: string | null;
+    detail?: string;
+  }>;
+  assumptions_available?: boolean;
+  assumption_method?: string | null;
+  conflict_groups?: ConflictGroup[];
+  unsat_core_kind?: string;
+};
+
 export type OptimizationRun = {
   id: number;
   status: string;
@@ -25,7 +51,7 @@ export type OptimizationRun = {
   parameters: Record<string, unknown>;
   label: string;
   error_message: string | null;
-  diagnostics: Record<string, unknown> | null;
+  diagnostics: Diagnostics | null;
   objective_breakdown: ObjectiveBreakdown | null;
   schedule_id: number | null;
   created_at: string;
@@ -150,12 +176,26 @@ export type Schedule = {
   created_at: string;
 };
 
+export type DemoScenario = "optimal" | "feasible" | "infeasible";
+
 export type DemoLoadResult = {
-  scenario: "feasible" | "infeasible";
+  scenario: DemoScenario;
   synthetic: boolean;
   employees?: number;
   shifts?: number;
   [key: string]: unknown;
+};
+
+export type ScenarioTiming = {
+  scenario: DemoScenario;
+  expected: SolverStatus;
+  solver_status: SolverStatus | null;
+  wall_ms: number | null;
+  objective: number | null;
+  best_bound: number | null;
+  gap: number | null;
+  run_id: number | null;
+  error?: string;
 };
 
 export type ScheduleSummary = {

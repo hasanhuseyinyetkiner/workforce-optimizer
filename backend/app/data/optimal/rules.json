@@ -1,0 +1,17 @@
+{
+  "name": "Demo ward rules",
+  "min_rest_hours": 8,
+  "max_shift_hours": 12,
+  "max_consecutive_days": 6,
+  "overtime_threshold_hours": 40,
+  "relaxed_understaffing": false,
+  "weights": {
+    "cost": 1,
+    "preference": 8,
+    "fairness": 4,
+    "overtime": 15,
+    "night_imbalance": 3,
+    "weekend_imbalance": 3,
+    "understaff": 500
+  }
+}

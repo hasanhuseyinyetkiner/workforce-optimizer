@@ -131,7 +131,12 @@ def execute_run(run_id: int) -> None:
             publish = False
             error = outcome.error
             if outcome.solver_status == "INFEASIBLE":
-                report = diagnose(problem, config)
+                report = diagnose(
+                    problem,
+                    config,
+                    conflict_groups=outcome.conflict_groups,
+                    assumptions_available=outcome.assumptions_available,
+                )
             elif outcome.solver_status in {"OPTIMAL", "FEASIBLE"}:
                 validation = validate_schedule(problem, list(outcome.assignments))
                 breakdown = score_schedule(problem, list(outcome.assignments))

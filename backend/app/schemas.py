@@ -80,4 +80,4 @@ class RunIn(BaseModel):
 
 
 class DemoIn(BaseModel):
-    scenario: Literal["feasible", "infeasible"]
+    scenario: Literal["optimal", "feasible", "infeasible"]

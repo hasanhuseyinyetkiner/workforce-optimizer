@@ -1,6 +1,6 @@
 # Engineering decisions
 
-Staff-level product and modeling choices for Workforce Optimizer. Short IDs match `docs/REVIEW_AMENDMENTS.md`.
+Staff-level product and modeling choices for Workforce Optimizer.
 
 ## Engineering case study
 
@@ -32,7 +32,7 @@ CP-SAT produces candidates; `validator.py` rechecks hard rules without importing
 
 ### Infeasibility diagnostics
 
-On `INFEASIBLE`, progressive relaxation probes (`probe_relaxations`) try named mutants (skills, coverage, rest, availability, caps, consecutive days) and attach findings. Best-effort only — **not** a proven irreducible inconsistent subset (IIS). Structural hints (e.g. `no_qualified_employee`) come from `diagnostics.py`.
+On `INFEASIBLE`, diagnostics combine: (1) structural findings, (2) CP-SAT **constraint-group assumptions** + deletion filter (`sufficient_assumptions_for_infeasibility`), (3) progressive relaxation probes. Best-effort only — **not** a proven irreducible inconsistent subset (IIS) over individual constraints. If the assumption API is unavailable, that layer is omitted and labeled honestly.
 
 **Infeasible ≠ legally prohibited.** Status means the configured constraint model has no satisfying assignment, not that a schedule violates labor law.
 
@@ -87,9 +87,9 @@ Demo UI and automated tests use `reproducible`. Every SatParameter used is check
 
 ## Brand accent — amber `#D97706`
 
-**Context.** Portfolio brief suggests emerald `#059669` for this product; the implemented UI, SVG banners, Recharts fills, and authentic screenshots already use amber `#D97706` (per REVIEW_AMENDMENTS).
+**Context.** The shipped UI, SVG banners, Recharts fills, and screenshots use amber `#D97706`.
 
-**Decision.** Keep amber for a coherent case study. Document the choice in the README rather than retinting code and reshooting every surface mid-documentation pass.
+**Decision.** Keep amber as the product accent. Document it in the README.
 
 ## Independent validator over solver trust
 
@@ -112,6 +112,3 @@ Demo UI and automated tests use `reproducible`. Every SatParameter used is check
 | [`ALGORITHM.md`](ALGORITHM.md) | Formal model + status semantics |
 | [`BENCHMARK.md`](BENCHMARK.md) | Measured micro-benchmark |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Runtime topology |
-| [`REVIEW_AMENDMENTS.md`](REVIEW_AMENDMENTS.md) | Binding design-review overrides |
-| [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md) | Historical product prompt |
-| [`RELEASE_READINESS.md`](RELEASE_READINESS.md) | Pre-publish checklist |

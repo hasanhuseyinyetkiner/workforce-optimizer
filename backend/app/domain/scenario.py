@@ -26,13 +26,13 @@ class ScenarioBundle:
 
 
 def scenario_path(scenario: str, filename: str) -> Path:
-    if scenario not in {"feasible", "infeasible"}:
+    if scenario not in {"optimal", "feasible", "infeasible"}:
         raise DomainError("unknown_scenario", f"Unknown scenario: {scenario}")
     direct = DATA_ROOT / scenario / filename
     if direct.exists():
         return direct
     fallback = DATA_ROOT / "feasible" / filename
-    if scenario != "feasible" and fallback.exists():
+    if scenario not in {"feasible"} and fallback.exists():
         return fallback
     raise DomainError("missing_scenario_file", f"Scenario file not found: {direct}")
 

@@ -1,4 +1,13 @@
-"""Best-effort infeasibility notes. Not a minimal unsatisfiable core. No OR-Tools."""
+"""Best-effort infeasibility notes.
+
+Capability (honest):
+- Structural pre-checks (coverage/skills/rest heuristics) without OR-Tools.
+- Progressive relaxation probes (named mutants).
+- When OR-Tools CP-SAT assumptions are available: a *group-level* sufficient
+  assumption set for hard constraint families (coverage, skills, rest, weekly
+  caps, consecutive days). That is not a minimal IIS over every individual
+  constraint, and we do not invent one if the API is unavailable.
+"""
 
 from __future__ import annotations
 
@@ -6,8 +15,19 @@ from app.domain.eligibility import employee_block_reason, rest_conflict
 from app.domain.problem import Problem
 
 DIAGNOSTIC_NOTE = (
-    "Best-effort progressive relaxation. This is not a proven minimal unsatisfiable core."
+    "Best-effort conflict diagnostics: structural findings, progressive "
+    "relaxation probes, and (when available) CP-SAT sufficient assumptions over "
+    "hard constraint *groups*. Not a proven minimal unsatisfiable core (IIS) "
+    "over every individual constraint."
 )
+
+GROUP_LABELS = {
+    "coverage": "Shift coverage (required headcount)",
+    "skill_requirements": "Skill requirements",
+    "rest": "Rest / no-overlap between shifts",
+    "weekly_cap": "Weekly hour caps (incl. prior hours)",
+    "consecutive_days": "Max consecutive working days",
+}
 
 
 def structural_findings(problem: Problem) -> list[dict[str, object]]:
@@ -85,9 +105,33 @@ def structural_findings(problem: Problem) -> list[dict[str, object]]:
     return findings
 
 
-def explain(problem: Problem, relaxations: list[dict[str, object]]) -> dict[str, object]:
+def explain(
+    problem: Problem,
+    relaxations: list[dict[str, object]],
+    *,
+    assumption_groups: list[str] | None = None,
+    assumptions_available: bool = True,
+) -> dict[str, object]:
+    groups = list(assumption_groups or [])
+    conflict_groups = [
+        {
+            "group": name,
+            "label": GROUP_LABELS.get(name, name),
+        }
+        for name in groups
+    ]
     return {
         "note": DIAGNOSTIC_NOTE,
         "findings": structural_findings(problem),
         "relaxations": relaxations,
+        "assumptions_available": assumptions_available,
+        "assumption_method": (
+            "CpSolver.sufficient_assumptions_for_infeasibility"
+            if assumptions_available
+            else None
+        ),
+        "conflict_groups": conflict_groups,
+        "unsat_core_kind": (
+            "constraint_group_assumptions" if groups else ("unavailable" if not assumptions_available else "empty")
+        ),
     }

@@ -64,6 +64,8 @@ class SolveResult:
     assignments: tuple[tuple[int, int], ...]
     parameters: dict[str, object]
     error: str | None = None
+    conflict_groups: tuple[str, ...] = ()
+    assumptions_available: bool = True
 
 
 def mode_label(mode: str) -> str:
@@ -161,13 +163,88 @@ def _lin_sum(terms: list[object]) -> object:
     return total
 
 
+def _assumptions_api_available() -> bool:
+    return hasattr(cp_model.CpModel, "add_assumption") and hasattr(
+        cp_model.CpSolver, "sufficient_assumptions_for_infeasibility"
+    )
+
+
+def _extract_conflict_groups(
+    solver: cp_model.CpSolver,
+    assumption_index: dict[int, str],
+) -> tuple[str, ...]:
+    if not assumption_index:
+        return ()
+    try:
+        core = solver.sufficient_assumptions_for_infeasibility()
+    except Exception:
+        return ()
+    groups = {
+        assumption_index[literal]
+        for literal in core
+        if literal in assumption_index
+    }
+    return tuple(sorted(groups))
+
+
+def _refine_conflict_groups(
+    problem: Problem,
+    config: SolverConfig,
+    groups: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Deletion filter over assumption groups. Still not a proven minimal IIS."""
+    if len(groups) <= 1:
+        return groups
+    essential = list(groups)
+    changed = True
+    while changed and len(essential) > 1:
+        changed = False
+        for group in list(essential):
+            trial = tuple(g for g in essential if g != group)
+            if _groups_still_infeasible(problem, config, trial):
+                essential = list(trial)
+                changed = True
+                break
+    return tuple(sorted(essential))
+
+
+def _groups_still_infeasible(
+    problem: Problem,
+    config: SolverConfig,
+    active_groups: tuple[str, ...],
+) -> bool:
+    employees = tuple(sorted(problem.employees, key=lambda employee: employee.id))
+    shifts = tuple(sorted(problem.shifts, key=lambda shift: (shift.start, shift.id)))
+    ordered = replace(problem, employees=employees, shifts=shifts)
+    model = cp_model.CpModel()
+    model.name = "workforce-optimizer-core-refine"
+    _allowed, pieces, _ = _build_model(
+        model,
+        ordered,
+        use_assumptions=True,
+        active_groups=set(active_groups),
+    )
+    if pieces:
+        objective = pieces[0]
+        for piece in pieces[1:]:
+            objective = objective + piece  # type: ignore[operator]
+        model.minimize(objective)
+    else:
+        model.minimize(0)
+    solver = cp_model.CpSolver()
+    apply_parameters(solver, config)
+    status = solver.solve(model)
+    return solver.status_name(status) == "INFEASIBLE"
+
+
 def solve_problem(problem: Problem, config: SolverConfig) -> SolveResult:
     employees = tuple(sorted(problem.employees, key=lambda employee: employee.id))
     shifts = tuple(sorted(problem.shifts, key=lambda shift: (shift.start, shift.id)))
     ordered = replace(problem, employees=employees, shifts=shifts)
     model = cp_model.CpModel()
     model.name = "workforce-optimizer"
-    allowed, pieces = _build_model(model, ordered)
+    use_assumptions = _assumptions_api_available()
+    allowed, pieces, assumption_index = _build_model(model, ordered, use_assumptions=use_assumptions)
     if pieces:
         objective = pieces[0]
         for piece in pieces[1:]:
@@ -191,6 +268,7 @@ def solve_problem(problem: Problem, config: SolverConfig) -> SolveResult:
             assignments=(),
             parameters=parameters,
             error=f"CP-SAT rejected the model. {solver.response_stats()}",
+            assumptions_available=use_assumptions,
         )
     if name not in SOLVER_STATUSES:
         return SolveResult(
@@ -201,8 +279,13 @@ def solve_problem(problem: Problem, config: SolverConfig) -> SolveResult:
             assignments=(),
             parameters=parameters,
             error=f"Unexpected solver status {name}.",
+            assumptions_available=use_assumptions,
         )
     if name not in {"OPTIMAL", "FEASIBLE"}:
+        conflict_groups: tuple[str, ...] = ()
+        if name == "INFEASIBLE" and use_assumptions:
+            raw = _extract_conflict_groups(solver, assumption_index)
+            conflict_groups = _refine_conflict_groups(ordered, config, raw)
         return SolveResult(
             solver_status=name,
             objective=None,
@@ -210,6 +293,8 @@ def solve_problem(problem: Problem, config: SolverConfig) -> SolveResult:
             runtime_seconds=runtime,
             assignments=(),
             parameters=parameters,
+            conflict_groups=conflict_groups,
+            assumptions_available=use_assumptions,
         )
     assignments = tuple(
         sorted(
@@ -225,17 +310,74 @@ def solve_problem(problem: Problem, config: SolverConfig) -> SolveResult:
         runtime_seconds=runtime,
         assignments=assignments,
         parameters=parameters,
+        assumptions_available=use_assumptions,
     )
+
+
+def _group_literal(
+    model: cp_model.CpModel,
+    assumption_index: dict[int, str],
+    group: str,
+    *,
+    use_assumptions: bool,
+    active_groups: set[str] | None,
+) -> tuple[cp_model.IntVar | None, bool]:
+    """Return (assumption_literal, group_enabled).
+
+    group_enabled False → skip this hard-constraint family (refinement).
+    literal None + enabled True → unconditional hard constraint (no assumptions API).
+    """
+    if active_groups is not None and group not in active_groups:
+        return None, False
+    if not use_assumptions:
+        return None, True
+    literal = model.new_bool_var(f"assume_{group}")
+    assumption_index[literal.Index()] = group
+    model.add_assumption(literal)
+    return literal, True
+
+
+def _add_hard(
+    model: cp_model.CpModel,
+    constraint: object,
+    literal: cp_model.IntVar | None,
+    *,
+    enabled: bool,
+) -> None:
+    if not enabled:
+        return
+    if literal is None:
+        return
+    constraint.only_enforce_if(literal)  # type: ignore[attr-defined]
 
 
 def _build_model(
     model: cp_model.CpModel,
     problem: Problem,
-) -> tuple[dict[tuple[int, int], cp_model.IntVar], list[object]]:
+    *,
+    use_assumptions: bool = True,
+    active_groups: set[str] | None = None,
+) -> tuple[dict[tuple[int, int], cp_model.IntVar], list[object], dict[int, str]]:
     rules = problem.rules
     weights = rules.weights
     employees = problem.employees
     shifts = problem.shifts
+    assumption_index: dict[int, str] = {}
+    lit_kwargs = {"use_assumptions": use_assumptions, "active_groups": active_groups}
+    assume_coverage, en_coverage = _group_literal(
+        model, assumption_index, "coverage", **lit_kwargs
+    )
+    assume_skills, en_skills = _group_literal(
+        model, assumption_index, "skill_requirements", **lit_kwargs
+    )
+    assume_rest, en_rest = _group_literal(model, assumption_index, "rest", **lit_kwargs)
+    assume_weekly, en_weekly = _group_literal(
+        model, assumption_index, "weekly_cap", **lit_kwargs
+    )
+    assume_consecutive, en_consecutive = _group_literal(
+        model, assumption_index, "consecutive_days", **lit_kwargs
+    )
+
     allowed: dict[tuple[int, int], cp_model.IntVar] = {}
     for employee in employees:
         for shift in shifts:
@@ -251,8 +393,9 @@ def _build_model(
             short = model.new_int_var(0, shift.required_count, f"short_{shift.id}")
             model.add(headcount + short >= shift.required_count)
             shortfalls.append(short)
-        else:
-            model.add(headcount >= shift.required_count)
+        elif en_coverage:
+            constraint = model.add(headcount >= shift.required_count)
+            _add_hard(model, constraint, assume_coverage, enabled=True)
         for requirement_index, requirement in enumerate(shift.skill_requirements):
             qualified = [
                 allowed[employee.id, shift.id]
@@ -269,17 +412,19 @@ def _build_model(
                 )
                 model.add(qualified_sum + skill_short >= requirement.min_count)
                 shortfalls.append(skill_short)
-            else:
-                model.add(qualified_sum >= requirement.min_count)
+            elif en_skills:
+                constraint = model.add(qualified_sum >= requirement.min_count)
+                _add_hard(model, constraint, assume_skills, enabled=True)
 
     for employee in employees:
         owned = [shift for shift in shifts if (employee.id, shift.id) in allowed]
         for index, left in enumerate(owned):
             for right in owned[index + 1 :]:
-                if rest_conflict(left, right, rules.min_rest_hours):
-                    model.add(
+                if rest_conflict(left, right, rules.min_rest_hours) and en_rest:
+                    constraint = model.add(
                         allowed[employee.id, left.id] + allowed[employee.id, right.id] <= 1
                     )
+                    _add_hard(model, constraint, assume_rest, enabled=True)
 
     hour_hi = sum(shift.duration_hours for shift in shifts) + 1
     for employee in employees:
@@ -293,17 +438,21 @@ def _build_model(
             key = week_key(prior.local_start_date)
             prior_by_week[key] = prior_by_week.get(key, 0) + prior.hours
         for key in set(by_week) | set(prior_by_week):
+            if not en_weekly:
+                continue
             terms = [
                 allowed[employee.id, shift.id] * shift.duration_hours for shift in by_week.get(key, [])
             ]
             prior_hours = prior_by_week.get(key, 0)
             if prior_hours > employee.weekly_hour_cap:
                 for shift in by_week.get(key, []):
-                    model.add(allowed[employee.id, shift.id] == 0)
+                    constraint = model.add(allowed[employee.id, shift.id] == 0)
+                    _add_hard(model, constraint, assume_weekly, enabled=True)
                 continue
-            model.add(_lin_sum(terms) + prior_hours <= employee.weekly_hour_cap)
+            constraint = model.add(_lin_sum(terms) + prior_hours <= employee.weekly_hour_cap)
+            _add_hard(model, constraint, assume_weekly, enabled=True)
 
-    if rules.max_consecutive_days is not None:
+    if rules.max_consecutive_days is not None and en_consecutive:
         dates = horizon_dates(problem)
         window = rules.max_consecutive_days + 1
         if len(dates) >= window:
@@ -332,7 +481,10 @@ def _build_model(
                         worked[day] = flag
                 for start_index in range(len(dates) - window + 1):
                     chunk = dates[start_index : start_index + window]
-                    model.add(_lin_sum([worked[day] for day in chunk]) <= rules.max_consecutive_days)
+                    constraint = model.add(
+                        _lin_sum([worked[day] for day in chunk]) <= rules.max_consecutive_days
+                    )
+                    _add_hard(model, constraint, assume_consecutive, enabled=True)
 
     loads = []
     night_loads = []
@@ -402,7 +554,7 @@ def _build_model(
                 "weekend",
             ),
         )
-    return allowed, pieces
+    return allowed, pieces, assumption_index
 
 
 def _add_weighted(pieces: list[object], weight: int, terms: list[object]) -> None:
@@ -458,8 +610,25 @@ def probe_relaxations(problem: Problem, config: SolverConfig) -> list[dict[str, 
     return results
 
 
-def diagnose(problem: Problem, config: SolverConfig) -> dict[str, object]:
-    return explain(problem, probe_relaxations(problem, config))
+def diagnose(
+    problem: Problem,
+    config: SolverConfig,
+    *,
+    conflict_groups: tuple[str, ...] | list[str] | None = None,
+    assumptions_available: bool | None = None,
+) -> dict[str, object]:
+    available = _assumptions_api_available() if assumptions_available is None else assumptions_available
+    groups = list(conflict_groups) if conflict_groups is not None else []
+    if conflict_groups is None and available:
+        probe = solve_problem(problem, config)
+        groups = list(probe.conflict_groups)
+        available = probe.assumptions_available
+    return explain(
+        problem,
+        probe_relaxations(problem, config),
+        assumption_groups=groups,
+        assumptions_available=available,
+    )
 
 
 def _with_rules(problem: Problem, **changes: object) -> Problem:

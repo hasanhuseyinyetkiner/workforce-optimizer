@@ -9,7 +9,8 @@ React + Vite + TypeScript SPA for the local Workforce Optimizer demo.
 | UI | React 19, React Router, TanStack Query |
 | Styling | Tailwind CSS 4, amber accent `#D97706` |
 | Charts | Recharts (Overview / Solve breakdown) |
-| Roster | **Custom employee×day grid** on `src/pages/SchedulePage.tsx` |
+| Roster | Dense custom employee×day grid + violation badges (`SchedulePage.tsx`) |
+| Scenarios | OPTIMAL / FEASIBLE / INFEASIBLE toggle with live wall-ms telemetry |
 | Tests | Vitest smoke + Playwright e2e |
 | Package manager | pnpm 12.14.0 |
 

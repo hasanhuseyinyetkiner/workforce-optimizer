@@ -3,15 +3,15 @@ import { expect, test } from "@playwright/test";
 test("demo → solve → validate → export", async ({ page }) => {
   await page.goto("/scenarios");
   await expect(page.getByRole("heading", { name: "Scenarios" })).toBeVisible();
-  await page.getByTestId("load-feasible").click();
-  await expect(page.getByText(/Loaded feasible scenario/i)).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("scenario-feasible").click();
+  await expect(page.getByTestId("scenario-timing")).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId("scenario-timing")).toContainText(/FEASIBLE|OPTIMAL/);
 
   await page.goto("/solve");
   await page.getByTestId("run-solve").click();
-  await expect(page.getByRole("definition").filter({ hasText: /OPTIMAL|FEASIBLE/ })).toBeVisible({
-    timeout: 120_000,
-  });
-  await expect(page.locator("dd").filter({ hasText: /^\d+$/ }).first()).toBeVisible();
+  await expect(page.getByTestId("solver-telemetry")).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByTestId("solver-telemetry")).toContainText(/OPTIMAL|FEASIBLE/);
+  await expect(page.getByTestId("solver-telemetry")).toContainText(/ms/);
 
   await page.goto("/schedule");
   await expect(page.getByRole("heading", { name: "Schedule" })).toBeVisible();

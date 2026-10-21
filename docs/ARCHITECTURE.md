@@ -70,6 +70,4 @@ CI runs `pnpm assert:no-fc-premium` so banned Premium calendar package strings c
 - [ALGORITHM.md](ALGORITHM.md) — CP-SAT formulation and status semantics
 - [BENCHMARK.md](BENCHMARK.md) — measured micro-benchmark table
 - [ENGINEERING_DECISIONS.md](ENGINEERING_DECISIONS.md) — WFO decisions + case study
-- [REVIEW_AMENDMENTS.md](REVIEW_AMENDMENTS.md) — binding design-review overrides
-- [RELEASE_READINESS.md](RELEASE_READINESS.md) — pre-publish checklist
 - [../frontend/README.md](../frontend/README.md) — frontend developer notes
