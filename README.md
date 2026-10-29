@@ -1,143 +1,114 @@
-<p align="center">
-  <img src="docs/assets/logo.png" alt="Workforce Optimizer logo — Right people. Right work. Better results." width="560">
-</p>
+<img src="docs/assets/logo.png" alt="Workforce Optimizer logo" width="120" align="right">
 
 # Workforce Optimizer
 
-Local CP-SAT roster demo: assign staff to shifts under hard coverage / skill / rest / hour rules, return honest solver status, and re-check assignments with an OR-Tools-free validator.
+**A constraint-based roster, with the result checked independently.**
 
-Accent: **`#D97706`**. Ports: API **8103**, web **5103**. License: [MIT](LICENSE).
+Build shift schedules with OR-Tools CP-SAT, inspect solver status and trade-offs, and re-check assignments with a separate Python validator. A local demo using synthetic ward data.
 
 [![CI](https://github.com/hasanhuseyinyetkiner/workforce-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/hasanhuseyinyetkiner/workforce-optimizer/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-D97706.svg)](LICENSE)
 
-<p align="center">
-  <img alt="Overview after a reproducible solve" src="docs/screenshots/overview.png" width="92%">
-</p>
+[Highlights](#highlights) · [Architecture](#architecture) · [Solver and validation](#solver-and-validation) · [Quick start](#quick-start) · [Evidence](#evidence) · [Documentation](#documentation)
 
-## For HR and talent leaders
+![Schedule grid showing a feasible synthetic ward roster and its validator summary](docs/screenshots/schedule.png)
 
-| Question | What this tool gives you |
-| --- | --- |
-| **Does a valid roster exist?** | The solver reports OPTIMAL, FEASIBLE or INFEASIBLE honestly and never invents assignments. |
-| **Can I check the result independently?** | A separate validator re-checks every assignment against the hard rules. |
-| **Why did the roster change?** | Objective components and conflict diagnostics explain trade-offs and clashing rule groups. |
-| **What it is not** | A model result, not a labor-law verdict. Synthetic Northwind Ward data only. |
+<sub>Real application capture: a feasible Northwind Ward schedule, with validation and export controls. Data is synthetic.</sub>
 
-## Why it exists
+[Watch the real scenario → solve → schedule validation workflow (GIF)](docs/assets/demo.gif). The screenshot above is a static alternative; regenerate the animation on Windows with `node scripts/generate-demo-gif.mjs` after installing the project dependencies, Playwright Chromium and FFmpeg. The isolated synthetic data and recording are retained in a temporary folder.
 
-Ward managers need a roster that respects configured constraints — and a clear `INFEASIBLE` when nothing works. This app never fabricates assignments on conflict. Status is a model result, not a labor-law verdict.
+## Highlights
 
-## Capabilities
-
-| Shipped | Notes |
-| --- | --- |
-| OR-Tools CP-SAT model | Hard vs soft terms; reproducible / fast modes |
-| Independent validator | Pure Python; used on validate + export |
-| Scenarios | Toggle **OPTIMAL / FEASIBLE / INFEASIBLE** with live wall-ms telemetry |
-| Conflict diagnostics | Structural findings + assumption-group unsat core (**not** a proven minimal IIS) + relaxation probes |
-| Dense roster grid | Employee×day CSS grid, violation badges, CSV/ICS export |
-| Solver telemetry | Wall ms, objective, best bound, gap, component breakdown |
-
-Synthetic Northwind Ward data only. Local demo / MVP — not multi-tenant SaaS.
-
-## Current status
-
-| Area | Status |
-| --- | --- |
-| CP-SAT + independent validator | Intact; hard violations never stored as successful schedules |
-| Conflict diagnostics | Assumption-group / unsat core wording; no minimal-IIS claim |
-| Objective explainability | Independent `score_schedule` breakdown must match solver total (golden tests) |
-| Performance | Re-measured 2026-10-21 → [PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md) |
-| Playwright e2e | CI job kept; a11y smoke + INFEASIBLE journey added |
-| Docker / compose | **Blocked** in this workspace — `compose-smoke` job may fail until Docker is available |
-| Screenshots in README | From a prior captured Playwright session under `docs/screenshots/` (not regenerated this session unless noted) |
+- **Model the roster.** Coverage, skills, availability, time off, rest, weekly hours and other configured rules define feasible assignments; weighted soft terms express cost, preferences and workload trade-offs.
+- **See what the solver knows.** Status, objective, best bound, gap and runtime distinguish a proven optimum from a feasible result or an unresolved run.
+- **Check before storing.** A separate OR-Tools-free validator checks hard rules, and an independent scorer checks the objective. A rejected assignment or mismatched score is not stored as a schedule.
+- **Investigate conflicts.** Infeasible runs can show structural findings, constraint-group assumptions and named relaxation probes. These are diagnostic aids, not a proven minimal IIS.
+- **Explore and share.** Run synthetic scenarios, compare stored schedules, re-validate a roster and export CSV or ICS.
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-  UI[React UI :5103] --> API[FastAPI :8103]
-  API --> DB[(SQLite local / PostgreSQL CI)]
-  API --> Worker[Solve thread]
-  Worker --> CPSAT[OR-Tools CP-SAT]
-  Worker --> Val[Pure-Python validator]
+  UI[React + Vite UI] -->|API requests| API[FastAPI]
+  API <--> DB[(SQLite locally / PostgreSQL in CI and Compose)]
+  API -->|start run| Worker[Solve thread]
+  DB -->|employees, shifts, rules| Worker
+  Worker --> Solver[OR-Tools CP-SAT]
+  Solver -->|feasible assignments| Check[Python validator + scorer]
+  Check -->|valid and score matches| DB
+  Solver -->|infeasible| Diag[Conflict diagnostics]
+  Diag --> DB
+  DB -->|status, schedule, diagnostics| API
 ```
 
-Model: [docs/ALGORITHM.md](docs/ALGORITHM.md) · this-session baseline: [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md) · historical: [docs/BENCHMARK.md](docs/BENCHMARK.md).
+The API starts a background solve thread. It builds a problem from stored data; after a feasible solve, the validator checks the assignment and the scorer reconciles its objective before the schedule is saved. Validation and export paths also re-check stored assignments. See the [algorithm notes](docs/ALGORITHM.md) for model details.
+
+## Solver and validation
+
+The model uses employee-by-shift Boolean variables, pruning ineligible assignments before solving. Hard rules constrain the roster; soft penalties account for cost, preferences, overtime, fairness, night and weekend balance. Coverage or skill shortfalls are allowed only when the explicit `relaxed_understaffing` rule is enabled and penalized in the objective.
+
+| Solver status | What it means |
+| --- | --- |
+| `OPTIMAL` | An optimal solution was proven. |
+| `FEASIBLE` | An assignment was found, but optimality was not proven. |
+| `INFEASIBLE` | No assignment satisfies the configured model rules; no schedule is stored. |
+| `UNKNOWN` | No usable proof or assignment, including timeout or a rejected model; no schedule is fabricated. |
+
+The independent validator checks hard rules; it **does not prove optimality**. Infeasibility concerns the configured model, not a legal judgment. Diagnostics use best-effort group-level sufficient assumptions and relaxation probes; they do not establish a minimal infeasible subsystem over individual constraints. [Details and reproducibility limits →](docs/ALGORITHM.md)
 
 ## Quick start
 
+Prerequisites: **Python 3.12+**, [uv](https://docs.astral.sh/uv/), **Node.js 24** and **pnpm 12.14.0** (the versions used in CI). Run from the repository root in two terminals:
+
 ```powershell
-# Backend — http://127.0.0.1:8103
+# Terminal 1: API at http://127.0.0.1:8103
 cd backend
 uv sync
 uv run python -m app.cli
+```
 
-# Frontend — http://127.0.0.1:5103 (new terminal)
+```powershell
+# Terminal 2: UI at http://127.0.0.1:5103
 cd frontend
-pnpm install
+pnpm install --frozen-lockfile
 pnpm dev
 ```
 
-Env: [`.env.example`](.env.example). Non-loopback bind needs `ALLOW_NETWORK_BIND=true`.
+Open [127.0.0.1:5103](http://127.0.0.1:5103), select **Scenarios**, and run **OPTIMAL** or **FEASIBLE**. Inspect the resulting schedule and validator summary, then try **INFEASIBLE** to see conflict diagnostics. Scenario labels describe expected outcomes; the displayed solver status is the actual result.
 
-### 60-second path
+Native development defaults to SQLite and seeds synthetic data. Optional settings are documented in [`.env.example`](.env.example); the API binds to loopback by default. Interactive API documentation is available at [127.0.0.1:8103/docs](http://127.0.0.1:8103/docs) while the backend is running.
 
-1. Open http://127.0.0.1:5103
-2. **Scenarios** → **OPTIMAL** (or **FEASIBLE**) — load + solve, watch wall ms
-3. **Schedule** → dense grid + validator summary
-4. **INFEASIBLE** toggle → Solve shows conflict groups (e.g. skill requirements), no roster
+## Evidence
 
-### API sketch
-
-```powershell
-curl -X POST http://127.0.0.1:8103/api/demo/load -H "Content-Type: application/json" -d "{\"scenario\":\"optimal\"}"
-curl -X POST http://127.0.0.1:8103/api/optimization-runs -H "Content-Type: application/json" -d "{\"mode\":\"reproducible\",\"random_seed\":1}"
-```
-
-Scenarios: `optimal` | `feasible` | `infeasible`.
-
-## Status semantics
-
-| Status | Meaning |
-| --- | --- |
-| `OPTIMAL` | Proven optimum within the search budget |
-| `FEASIBLE` | Feasible assignment; not proven optimal (gap may be &gt; 0) |
-| `INFEASIBLE` | No assignment under configured hard rules — **no schedule row** |
-| `UNKNOWN` | Timeout / unexpected / model invalid — **no fabricated roster** |
-
-## Diagnostics (honest)
-
-On `INFEASIBLE`: structural findings, CP-SAT **constraint-group** assumptions (`sufficient_assumptions_for_infeasibility` + deletion filter), and progressive relaxations. This is **not** a proven minimal IIS over every individual constraint. See [ALGORITHM.md](docs/ALGORITHM.md#diagnostics-best-effort).
-
-## Tests & benchmark
+The [CI workflow](.github/workflows/ci.yml) defines local Markdown link checks, backend lint and tests with PostgreSQL, frontend checks, Playwright journeys and a Compose smoke job. Run the core checks locally:
 
 ```powershell
 cd backend
-uv run ruff check app tests
+uv run ruff check .
 uv run pytest -q
 uv run python scripts/micro_benchmark.py
 
 cd ../frontend
-pnpm lint && pnpm typecheck && pnpm test && pnpm build
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm build
 pnpm test:e2e
 ```
 
-This-session measured baseline: [docs/PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md). Historical ladder: [docs/BENCHMARK.md](docs/BENCHMARK.md).
+Playwright requires Chromium (`pnpm exec playwright install chromium`) and starts or reuses the local services as configured. The screenshot capture test writes to `docs/screenshots/`.
 
-## Docs
+The [2026-10-21 performance baseline](docs/PERFORMANCE_BASELINE.md) records one local instance ladder, including a **FEASIBLE** demo with objective 8788 and bound 8613, plus a separate reproducibility check. It is a portfolio micro-benchmark, not a production-scale performance claim. The [earlier benchmark](docs/BENCHMARK.md) is historical.
 
-| Doc | Contents |
-| --- | --- |
-| [ALGORITHM.md](docs/ALGORITHM.md) | Variables, hard/soft, diagnostics, status |
-| [PERFORMANCE_BASELINE.md](docs/PERFORMANCE_BASELINE.md) | Measured 2026-10-21 size ladder |
-| [BENCHMARK.md](docs/BENCHMARK.md) | Historical measured ladder (2026-10-20) |
-| [SECURITY.md](SECURITY.md) | Loopback demo boundaries / non-goals |
-| [frontend/README.md](frontend/README.md) | SPA notes |
+## Security & limitations
 
-## Limitations
+This is a **trusted-local demo**, not a production HR system: there is no authentication or multi-tenancy, and real employee or medical data should not be loaded. The API defaults to loopback; a non-loopback bind requires `ALLOW_NETWORK_BIND=true`. CORS is not authentication. The solver worker count is capped at four.
 
-- Not labor-law compliance. `INFEASIBLE` ≠ “legally prohibited.”
-- Demo auth: none. Loopback by default. CP-SAT workers capped at 4.
-- Assumption-group cores are best-effort, not full IIS.
-- Docker local smoke is blocked until Docker is usable on the host.
+Configured constraints do not establish labor-law or collective-bargaining compliance. Reproducible mode depends on the solver version and parameters; wall-clock runtime varies. Local Docker/Compose smoke testing was previously blocked by host availability; the CI job exists, but its presence alone does not establish that it passed. See [security boundaries](SECURITY.md).
+
+## Documentation
+
+- [Algorithm, status semantics and diagnostics](docs/ALGORITHM.md)
+- [Measured performance baseline](docs/PERFORMANCE_BASELINE.md) · [Historical benchmark](docs/BENCHMARK.md)
+- [Frontend development and screenshot procedure](frontend/README.md)
+- [Security](SECURITY.md) · [Configuration](.env.example) · [MIT license](LICENSE)
