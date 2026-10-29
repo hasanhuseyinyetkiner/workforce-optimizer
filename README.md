@@ -6,24 +6,18 @@
 
 Build shift schedules with OR-Tools CP-SAT, inspect solver status and trade-offs, and re-check assignments with a separate Python validator. A local demo using synthetic ward data.
 
+The interesting boundary is what happens after a solve: a feasible assignment is checked again against the configured rules, and its weighted score is reconciled before a schedule is stored. A valid roster is not necessarily optimal or legally compliant. The project also makes infeasibility visible without claiming to identify a minimal cause.
+
 [![CI](https://github.com/hasanhuseyinyetkiner/workforce-optimizer/actions/workflows/ci.yml/badge.svg)](https://github.com/hasanhuseyinyetkiner/workforce-optimizer/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-D97706.svg)](LICENSE)
 
-[Highlights](#highlights) · [Architecture](#architecture) · [Solver and validation](#solver-and-validation) · [Quick start](#quick-start) · [Evidence](#evidence) · [Documentation](#documentation)
+[Architecture](#architecture) · [Solver and validation](#solver-and-validation) · [Quick start](#quick-start) · [Evidence](#evidence) · [Documentation](#documentation)
 
 ![Schedule grid showing a feasible synthetic ward roster and its validator summary](docs/screenshots/schedule.png)
 
 <sub>Real application capture: a feasible Northwind Ward schedule, with validation and export controls. Data is synthetic.</sub>
 
 [Watch the real scenario → solve → schedule validation workflow (GIF)](docs/assets/demo.gif). The screenshot above is a static alternative; regenerate the animation on Windows with `node scripts/generate-demo-gif.mjs` after installing the project dependencies, Playwright Chromium and FFmpeg. The isolated synthetic data and recording are retained in a temporary folder.
-
-## Highlights
-
-- **Model the roster.** Coverage, skills, availability, time off, rest, weekly hours and other configured rules define feasible assignments; weighted soft terms express cost, preferences and workload trade-offs.
-- **See what the solver knows.** Status, objective, best bound, gap and runtime distinguish a proven optimum from a feasible result or an unresolved run.
-- **Check before storing.** A separate OR-Tools-free validator checks hard rules, and an independent scorer checks the objective. A rejected assignment or mismatched score is not stored as a schedule.
-- **Investigate conflicts.** Infeasible runs can show structural findings, constraint-group assumptions and named relaxation probes. These are diagnostic aids, not a proven minimal IIS.
-- **Explore and share.** Run synthetic scenarios, compare stored schedules, re-validate a roster and export CSV or ICS.
 
 ## Architecture
 
@@ -54,7 +48,7 @@ The model uses employee-by-shift Boolean variables, pruning ineligible assignmen
 | `INFEASIBLE` | No assignment satisfies the configured model rules; no schedule is stored. |
 | `UNKNOWN` | No usable proof or assignment, including timeout or a rejected model; no schedule is fabricated. |
 
-The independent validator checks hard rules; it **does not prove optimality**. Infeasibility concerns the configured model, not a legal judgment. Diagnostics use best-effort group-level sufficient assumptions and relaxation probes; they do not establish a minimal infeasible subsystem over individual constraints. [Details and reproducibility limits →](docs/ALGORITHM.md)
+The validator checks hard rules without OR-Tools; it **does not prove optimality**. It shares eligibility helpers with the solver, so a defect in those helpers could affect both checks. Infeasibility concerns the configured model, not a legal judgment. Diagnostics use best-effort group-level sufficient assumptions and relaxation probes; they do not establish a minimal infeasible subsystem over individual constraints. [Details and reproducibility limits →](docs/ALGORITHM.md)
 
 ## Quick start
 
@@ -100,6 +94,8 @@ Playwright requires Chromium (`pnpm exec playwright install chromium`) and start
 
 The [2026-10-21 performance baseline](docs/PERFORMANCE_BASELINE.md) records one local instance ladder, including a **FEASIBLE** demo with objective 8788 and bound 8613, plus a separate reproducibility check. It is a portfolio micro-benchmark, not a production-scale performance claim. The [earlier benchmark](docs/BENCHMARK.md) is historical.
 
+The [INRC-I assessment](docs/INRC_ASSESSMENT.md) traces the official instances and evaluator, identifies unresolved data licensing, and explains why this model's constraints, objective and run conditions cannot be compared with competition results. No real-data or INRC performance result is claimed.
+
 ## Security & limitations
 
 This is a **trusted-local demo**, not a production HR system: there is no authentication or multi-tenancy, and real employee or medical data should not be loaded. The API defaults to loopback; a non-loopback bind requires `ALLOW_NETWORK_BIND=true`. CORS is not authentication. The solver worker count is capped at four.
@@ -110,5 +106,7 @@ Configured constraints do not establish labor-law or collective-bargaining compl
 
 - [Algorithm, status semantics and diagnostics](docs/ALGORITHM.md)
 - [Measured performance baseline](docs/PERFORMANCE_BASELINE.md) · [Historical benchmark](docs/BENCHMARK.md)
+- [INRC-I source and comparability assessment](docs/INRC_ASSESSMENT.md)
 - [Frontend development and screenshot procedure](frontend/README.md)
 - [Security](SECURITY.md) · [Configuration](.env.example) · [MIT license](LICENSE)
+- [Changelog](CHANGELOG.md)
